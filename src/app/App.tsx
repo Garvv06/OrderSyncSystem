@@ -8,7 +8,7 @@ import { AdminApproval } from './components/AdminApproval';
 import { UserManagement } from './components/UserManagement';
 import { Package, FileText, PlusCircle, Clock, LogOut, UserCheck, Users } from 'lucide-react';
 import { api } from './utils/api';
-import mfoiLogo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import mfoiLogo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 type View = 'dashboard' | 'items' | 'new-order' | 'all-orders' | 'pending-orders' | 'admin-approval' | 'users';
 
