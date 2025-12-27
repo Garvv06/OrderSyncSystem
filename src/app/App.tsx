@@ -1,22 +1,24 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import logo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import { Order, Admin, Fastener, OrderItem, CompletionRecord } from './types';
+import { api } from './utils/api';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ItemsList } from './components/ItemsList';
-import { NewOrder } from './components/NewOrder';
 import { OrdersList } from './components/OrdersList';
+import { NewOrder } from './components/NewOrder';
 import { AdminApproval } from './components/AdminApproval';
 import { UserManagement } from './components/UserManagement';
-import { Package, FileText, PlusCircle, Clock, LogOut, UserCheck, Users } from 'lucide-react';
-import { api } from './utils/api';
-import mfoiLogo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import { LogOut, Package, ShoppingCart, FileText, UserCheck, Users, LayoutDashboard, Clock, PlusCircle, Cloud, HardDrive } from 'lucide-react';
+import { isSupabaseConfigured } from './utils/supabase';
 
-type View = 'dashboard' | 'items' | 'new-order' | 'all-orders' | 'pending-orders' | 'admin-approval' | 'users';
+type View = 'dashboard' | 'items' | 'all-orders' | 'remaining-orders' | 'new-order' | 'admin-approval' | 'user-management';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [admin, setAdmin] = useState<{ email: string; name: string } | null>(null);
+  const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Check for existing session on mount
@@ -47,7 +49,7 @@ export default function App() {
     }
   };
 
-  const handleLoginSuccess = (newToken: string, adminData: { email: string; name: string }) => {
+  const handleLoginSuccess = (newToken: string, adminData: Admin) => {
     setToken(newToken);
     setAdmin(adminData);
     setIsAuthenticated(true);
@@ -85,13 +87,14 @@ export default function App() {
       <header className="bg-white border-b-4 border-red-600 shadow-md sticky top-0 z-10">
         <div className="px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
+            {/* MFOI Logo */}
             <img 
-              src={mfoiLogo}
-              alt="MFOI Logo"
-              className="h-14"
+              src={logo} 
+              alt="MFOI Logo" 
+              className="h-12 w-auto"
             />
             <div>
-              <h1 className="text-gray-900">MFOI</h1>
+              <h1 className="text-gray-900">Order Management</h1>
               <p className="text-gray-600">Welcome, {admin?.name}</p>
             </div>
           </div>
@@ -116,7 +119,7 @@ export default function App() {
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Package className="size-4" />
+            <LayoutDashboard className="size-4" />
             Dashboard
           </button>
           <button
@@ -153,9 +156,9 @@ export default function App() {
             Previous Orders
           </button>
           <button
-            onClick={() => setCurrentView('pending-orders')}
+            onClick={() => setCurrentView('remaining-orders')}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'pending-orders'
+              currentView === 'remaining-orders'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -175,9 +178,9 @@ export default function App() {
             Admin Approval
           </button>
           <button
-            onClick={() => setCurrentView('users')}
+            onClick={() => setCurrentView('user-management')}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'users'
+              currentView === 'user-management'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
@@ -187,6 +190,39 @@ export default function App() {
           </button>
         </div>
       </nav>
+
+      {/* Database Mode Banner */}
+      {!isSupabaseConfigured && (
+        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <HardDrive className="size-5 text-yellow-700 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-yellow-800">
+                <strong>Local Mode:</strong> Data is saved on this device only.{' '}
+                <a 
+                  href="/SUPABASE_SETUP.md" 
+                  target="_blank"
+                  className="underline hover:text-yellow-900"
+                >
+                  Set up cloud database
+                </a>
+                {' '}to sync across all devices (laptop, mobile, tablet).
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSupabaseConfigured && (
+        <div className="bg-green-50 border-b border-green-200 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <Cloud className="size-5 text-green-700 flex-shrink-0" />
+            <p className="text-green-800">
+              <strong>Cloud Mode:</strong> Data synced across all devices ✓
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="p-6">
@@ -201,9 +237,9 @@ export default function App() {
           />
         )}
         {currentView === 'all-orders' && <OrdersList filter="all" token={token!} />}
-        {currentView === 'pending-orders' && <OrdersList filter="pending" token={token!} />}
+        {currentView === 'remaining-orders' && <OrdersList filter="pending" token={token!} />}
         {currentView === 'admin-approval' && <AdminApproval token={token!} />}
-        {currentView === 'users' && <UserManagement token={token!} currentUserEmail={admin?.email || ''} />}
+        {currentView === 'user-management' && <UserManagement token={token!} currentUserEmail={admin?.email || ''} />}
       </main>
     </div>
   );

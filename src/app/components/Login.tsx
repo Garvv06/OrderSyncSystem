@@ -1,7 +1,7 @@
 import { useState } from 'react';
+import logo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 import { api } from '../utils/api';
 import { Lock, User, AlertCircle } from 'lucide-react';
-import mfoiLogo from '../../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 interface LoginProps {
   onLoginSuccess: (token: string, admin: { email: string; name: string }) => void;
@@ -71,14 +71,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
         <div className="text-center mb-8">
+          {/* MFOI Logo */}
           <div className="flex justify-center mb-6">
             <img 
-              src={mfoiLogo} 
-              alt="MFOI Logo"
-              className="h-24"
+              src={logo} 
+              alt="MFOI Logo" 
+              className="h-20 w-auto"
             />
           </div>
-          <h1 className="text-3xl text-gray-900 mb-2">MFOI</h1>
+          <h1 className="text-3xl text-gray-900 mb-2">Admin Portal</h1>
           <p className="text-gray-600">{showSignup ? 'Create Admin Account' : 'Admin Login'}</p>
         </div>
 

@@ -321,7 +321,7 @@ export function ItemsList({ token }: ItemsListProps) {
                             <div className="flex flex-wrap gap-2">
                               {item.sizes.map((sizeData, idx) => (
                                 <div
-                                  key={idx}
+                                  key={`${item.id}-size-${idx}-${sizeData.size}`}
                                   className={`inline-flex items-center gap-3 px-3 py-1.5 rounded-lg border ${
                                     sizeData.stock < 100
                                       ? 'bg-red-50 border-red-200'

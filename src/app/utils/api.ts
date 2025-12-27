@@ -1,184 +1,163 @@
-// Simple API for localStorage-based authentication
-const API_URL = 'http://localhost:3000'; // Placeholder - not used with localStorage
+import { supabase } from './supabase';
+import { getAdmins, saveAdmin, updateAdmin, deleteAdmin } from './storage';
+import { Admin } from '../types';
+
+// Session storage for active tokens
+const activeSessions = new Map<string, { email: string; expiresAt: number }>();
+
+function generateToken(): string {
+  return `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
 
 export const api = {
-  async signup(email: string, password: string, name: string) {
-    // Store pending admin request
-    const pendingAdmins = JSON.parse(localStorage.getItem('pending_admins') || '[]');
-    
-    // Check if already exists
-    const admins = JSON.parse(localStorage.getItem('admins') || '[]');
-    if (admins.find((a: any) => a.email === email)) {
-      return { error: 'Admin with this email already exists' };
-    }
-    
-    if (pendingAdmins.find((a: any) => a.email === email)) {
-      return { error: 'Request already pending for this email' };
-    }
-
-    const newRequest = {
-      id: `pending_${Date.now()}`,
-      email,
-      password, // In production, this would be hashed
-      name,
-      requestedAt: new Date().toISOString(),
-      status: 'pending',
-    };
-
-    pendingAdmins.push(newRequest);
-    localStorage.setItem('pending_admins', JSON.stringify(pendingAdmins));
-
-    return { 
-      message: 'Account request submitted. Please wait for admin approval.',
-      pending: true
-    };
-  },
-
-  async getPendingAdmins(token: string) {
-    const pendingAdmins = JSON.parse(localStorage.getItem('pending_admins') || '[]');
-    return { pendingAdmins: pendingAdmins.filter((a: any) => a.status === 'pending') };
-  },
-
-  async approveAdmin(token: string, requestId: string) {
-    const pendingAdmins = JSON.parse(localStorage.getItem('pending_admins') || '[]');
-    const request = pendingAdmins.find((a: any) => a.id === requestId);
-    
-    if (!request) {
-      return { error: 'Request not found' };
-    }
-
-    // Add to approved admins
-    const admins = JSON.parse(localStorage.getItem('admins') || '[]');
-    admins.push({
-      email: request.email,
-      password: request.password,
-      name: request.name,
-      role: 'admin',
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem('admins', JSON.stringify(admins));
-
-    // Update pending status
-    const updated = pendingAdmins.map((a: any) => 
-      a.id === requestId ? { ...a, status: 'approved' } : a
-    );
-    localStorage.setItem('pending_admins', JSON.stringify(updated));
-
-    return { message: 'Admin approved successfully' };
-  },
-
-  async rejectAdmin(token: string, requestId: string) {
-    const pendingAdmins = JSON.parse(localStorage.getItem('pending_admins') || '[]');
-    const updated = pendingAdmins.map((a: any) => 
-      a.id === requestId ? { ...a, status: 'rejected' } : a
-    );
-    localStorage.setItem('pending_admins', JSON.stringify(updated));
-
-    return { message: 'Admin request rejected' };
-  },
-
   async login(email: string, password: string) {
-    const admins = JSON.parse(localStorage.getItem('admins') || '[]');
-    const admin = admins.find((a: any) => a.email === email && a.password === password);
+    try {
+      const admins = await getAdmins();
+      const admin = admins.find((a) => a.email === email && a.password === password);
 
-    if (!admin) {
-      // Check if request is pending
-      const pendingAdmins = JSON.parse(localStorage.getItem('pending_admins') || '[]');
-      const pending = pendingAdmins.find((a: any) => a.email === email && a.status === 'pending');
-      
-      if (pending) {
-        return { error: 'Your account is pending approval. Please wait for admin approval.' };
+      if (!admin) {
+        return { success: false, error: 'Invalid credentials' };
       }
-      
-      return { error: 'Invalid credentials' };
+
+      if (!admin.approved) {
+        return { success: false, error: 'Your account is pending approval' };
+      }
+
+      const token = generateToken();
+      const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+      activeSessions.set(token, { email: admin.email, expiresAt });
+
+      return {
+        success: true,
+        token,
+        admin: { email: admin.email, name: admin.name, role: admin.role },
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: 'Login failed' };
     }
+  },
 
-    const token = btoa(JSON.stringify({ email, name: admin.name, timestamp: Date.now() }));
-    
-    // Store session
-    localStorage.setItem('current_session', token);
-    localStorage.setItem(`session_${token}`, JSON.stringify({
-      email: admin.email,
-      name: admin.name,
-      createdAt: new Date().toISOString(),
-    }));
-
-    return {
-      token,
-      admin: {
-        email: admin.email,
-        name: admin.name,
+  async signup(email: string, password: string, name: string) {
+    try {
+      const admins = await getAdmins();
+      
+      // Check if email already exists
+      if (admins.some((a) => a.email === email)) {
+        return { success: false, error: 'Email already exists' };
       }
-    };
+
+      // Create new admin (not approved by default)
+      const newAdmin: Admin = {
+        email,
+        password,
+        name,
+        role: 'admin',
+        approved: false,
+      };
+
+      await saveAdmin(newAdmin);
+
+      return { success: true, pending: true, message: 'Account created. Pending approval from existing admin.' };
+    } catch (error) {
+      console.error('Signup error:', error);
+      return { success: false, error: 'Signup failed' };
+    }
   },
 
   async verify(token: string) {
-    const session = localStorage.getItem(`session_${token}`);
-    
-    if (!session) {
-      return { error: 'Invalid session', valid: false };
-    }
-
-    const sessionData = JSON.parse(session);
-    return {
-      valid: true,
-      admin: {
-        email: sessionData.email,
-        name: sessionData.name,
+    try {
+      const session = activeSessions.get(token);
+      if (!session) {
+        return { valid: false };
       }
-    };
+
+      if (Date.now() > session.expiresAt) {
+        activeSessions.delete(token);
+        return { valid: false };
+      }
+
+      const admins = await getAdmins();
+      const admin = admins.find((a) => a.email === session.email);
+
+      if (!admin || !admin.approved) {
+        return { valid: false };
+      }
+
+      return {
+        valid: true,
+        admin: { email: admin.email, name: admin.name, role: admin.role },
+      };
+    } catch (error) {
+      console.error('Verify error:', error);
+      return { valid: false };
+    }
   },
 
   async logout(token: string) {
-    localStorage.removeItem(`session_${token}`);
-    localStorage.removeItem('current_session');
-    return { message: 'Logged out successfully' };
+    activeSessions.delete(token);
+    return { success: true };
   },
 
+  async getPendingAdmins(token: string) {
+    try {
+      const session = activeSessions.get(token);
+      if (!session) {
+        throw new Error('Invalid token');
+      }
+
+      const admins = await getAdmins();
+      return { pendingAdmins: admins.filter((a) => !a.approved) };
+    } catch (error) {
+      console.error('Get pending admins error:', error);
+      return { pendingAdmins: [] };
+    }
+  },
+
+  async approveAdmin(token: string, email: string) {
+    try {
+      const session = activeSessions.get(token);
+      if (!session) {
+        throw new Error('Invalid token');
+      }
+
+      await updateAdmin(email, { approved: true });
+      return { success: true };
+    } catch (error) {
+      console.error('Approve admin error:', error);
+      return { success: false };
+    }
+  },
+
+  async rejectAdmin(token: string, email: string) {
+    try {
+      const session = activeSessions.get(token);
+      if (!session) {
+        throw new Error('Invalid token');
+      }
+
+      await deleteAdmin(email);
+      return { success: true };
+    } catch (error) {
+      console.error('Reject admin error:', error);
+      return { success: false };
+    }
+  },
+
+  // Legacy methods for backward compatibility
   async getItems(token: string) {
-    const items = JSON.parse(localStorage.getItem('fastener_items') || '[]');
-    return { items };
+    return { items: [] }; // Will be handled by storage.ts
   },
 
   async saveItems(token: string, items: any[]) {
-    localStorage.setItem('fastener_items', JSON.stringify(items));
-    return { message: 'Items saved successfully' };
+    return { success: true }; // Will be handled by storage.ts
   },
 
   async getOrders(token: string) {
-    const orders = JSON.parse(localStorage.getItem('fastener_orders') || '[]');
-    return { orders };
+    return { orders: [] }; // Will be handled by storage.ts
   },
 
   async saveOrders(token: string, orders: any[]) {
-    localStorage.setItem('fastener_orders', JSON.stringify(orders));
-    return { message: 'Orders saved successfully' };
-  },
-
-  async getOrderCounter(token: string) {
-    const counter = parseInt(localStorage.getItem('fastener_order_counter') || '0');
-    return { counter };
-  },
-
-  async saveOrderCounter(token: string, counter: number) {
-    localStorage.setItem('fastener_order_counter', counter.toString());
-    return { message: 'Counter saved successfully' };
+    return { success: true }; // Will be handled by storage.ts
   },
 };
-
-// Initialize with default admin account
-const initializeAdmin = () => {
-  const admins = JSON.parse(localStorage.getItem('admins') || '[]');
-  if (admins.length === 0) {
-    admins.push({
-      email: 'admin@fastener.com',
-      password: 'admin123',
-      name: 'Super Admin',
-      role: 'superadmin',
-      createdAt: new Date().toISOString(),
-    });
-    localStorage.setItem('admins', JSON.stringify(admins));
-  }
-};
-
-initializeAdmin();

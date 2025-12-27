@@ -1,6 +1,19 @@
 # MFOI - Fastener Order Management System
 
-A comprehensive admin-only order management system for fastener inventory with multi-admin support, partial order completion, and role-based access control.
+A comprehensive admin-only order management system for fastener inventory with multi-admin support, partial order completion, role-based access control, and **cloud database sync across all devices**.
+
+## 🌐 **NEW: Cloud Database - Access from Any Device!**
+
+Your MFOI system now supports **Supabase** cloud database with automatic fallback to localStorage:
+
+✅ **Works immediately** - Uses localStorage by default (no setup required)  
+✅ **Upgrade to cloud** - 5-minute Supabase setup for multi-device sync  
+✅ **Same data on all devices** - Laptop, mobile, tablet, desktop (after Supabase setup)  
+✅ **Real-time sync** - Changes visible instantly everywhere (cloud mode)  
+✅ **No data loss** - Everything stored safely  
+
+**Current Mode:** Local Storage (device-only)  
+**To Enable Cloud Sync:** See [SUPABASE_SETUP.md](/SUPABASE_SETUP.md) for 5-minute setup
 
 ## 🚀 Features
 
@@ -121,7 +134,7 @@ A comprehensive admin-only order management system for fastener inventory with m
 - React + TypeScript
 - Tailwind CSS v4.0
 - Lucide React Icons
-- LocalStorage for persistence
+- Supabase for cloud database
 
 ### **Key Files**
 - `/src/app/App.tsx` - Main application
@@ -156,10 +169,63 @@ A comprehensive admin-only order management system for fastener inventory with m
 
 ## 🌐 **Deployment**
 
-This application runs entirely in the browser with localStorage persistence.
+### **🎯 Complete Setup (First Time)**
 
-### **Option 1: Local Development**
+**Step 1: Set Up Supabase (5 minutes)**
+Follow the detailed guide: [SUPABASE_SETUP.md](/SUPABASE_SETUP.md)
+
+Quick summary:
+1. Create free Supabase account at https://supabase.com
+2. Create new project (wait 2-3 minutes)
+3. Copy Project URL and anon key from Settings → API
+4. Run SQL migration from `/supabase/migrations/001_initial_schema.sql`
+
+**Step 2: Deploy to Vercel**
+1. Push your code to GitHub
+2. Go to https://vercel.com and sign in
+3. Click **"New Project"**
+4. Import your GitHub repository
+5. **Add Environment Variables**:
+   - `VITE_SUPABASE_URL` = your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` = your Supabase anon key
+6. Click **Deploy**
+7. Wait 2-3 minutes
+8. Get your live URL: `https://your-app.vercel.app`
+
+**Step 3: Test Multi-Device Access**
+1. Open your Vercel URL on laptop
+2. Login: admin@fastener.com / admin123
+3. Create an order
+4. Open same URL on mobile
+5. Login with same credentials
+6. See the same order! ✅
+
+### **📱 Access Your App**
+
+**From Any Device:**
+- **Laptop**: Open browser → Your Vercel URL → Login
+- **Mobile**: Open browser → Same URL → Same login
+- **Tablet**: Open browser → Same URL → Same login
+- **Desktop**: Open browser → Same URL → Same login
+
+**All devices will see the same data in real-time!**
+
+### **🔄 Update Deployment (After Changes)**
+
+If you request any changes:
+1. Changes will be made to the code
+2. Push to GitHub
+3. Vercel automatically redeploys
+4. Refresh your browser to see updates
+5. No data loss - everything stays in Supabase
+
+### **Local Development**
 ```bash
+# Create .env file
+echo "VITE_SUPABASE_URL=your_url" > .env
+echo "VITE_SUPABASE_ANON_KEY=your_key" >> .env
+
+# Install and run
 npm install
 npm run dev
 ```

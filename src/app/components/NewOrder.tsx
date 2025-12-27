@@ -307,7 +307,7 @@ export function NewOrder({ token, adminName, adminEmail, onOrderCreated }: NewOr
                 <p className="text-gray-900 mb-2">{item.name}</p>
                 <div className="flex flex-wrap gap-2">
                   {item.sizes.map((sizeData, idx) => (
-                    <span key={idx} className="text-sm px-2 py-1 bg-gray-100 rounded">
+                    <span key={`${item.id}-size-${idx}-${sizeData.size}`} className="text-sm px-2 py-1 bg-gray-100 rounded">
                       {sizeData.size} (Stock: {sizeData.stock})
                     </span>
                   ))}
