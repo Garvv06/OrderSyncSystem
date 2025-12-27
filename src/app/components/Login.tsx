@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api } from '../utils/api';
 import { Lock, User, AlertCircle } from 'lucide-react';
-import mfoiLogo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import mfoiLogo from '../../asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 interface LoginProps {
   onLoginSuccess: (token: string, admin: { email: string; name: string }) => void;
