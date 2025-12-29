@@ -16,9 +16,16 @@ export function setCurrentUser(user: Admin) {
 // ==================== ADMIN MANAGEMENT ====================
 
 export async function getAdmins(): Promise<Admin[]> {
+  // Try Supabase first, then fallback to localStorage
   if (isSupabaseConfigured && supabase) {
-    return getAdminsFromSupabase();
+    const supabaseAdmins = await getAdminsFromSupabase();
+    if (supabaseAdmins.length > 0) {
+      // Cache in localStorage for offline access
+      localStorage.setItem('admins', JSON.stringify(supabaseAdmins));
+      return supabaseAdmins;
+    }
   }
+  // Fallback to localStorage
   return getAdminsFromLocalStorage();
 }
 
@@ -64,9 +71,14 @@ function getAdminsFromLocalStorage(): Admin[] {
 }
 
 export async function saveAdmin(admin: Admin): Promise<void> {
+  // Save to Supabase first
   if (isSupabaseConfigured && supabase) {
-    return saveAdminToSupabase(admin);
+    await saveAdminToSupabase(admin);
+    // Also save to localStorage as backup
+    saveAdminToLocalStorage(admin);
+    return;
   }
+  // Fallback to localStorage only
   return saveAdminToLocalStorage(admin);
 }
 
@@ -100,9 +112,14 @@ function saveAdminToLocalStorage(admin: Admin): void {
 }
 
 export async function updateAdmin(email: string, updates: Partial<Admin>): Promise<void> {
+  // Update in Supabase first
   if (isSupabaseConfigured && supabase) {
-    return updateAdminInSupabase(email, updates);
+    await updateAdminInSupabase(email, updates);
+    // Also update localStorage cache
+    updateAdminInLocalStorage(email, updates);
+    return;
   }
+  // Fallback to localStorage only
   return updateAdminInLocalStorage(email, updates);
 }
 
@@ -142,8 +159,8 @@ function updateAdminInLocalStorage(email: string, updates: Partial<Admin>): void
     localStorage.setItem('admins', JSON.stringify(admins));
 
     // Update orders if email changed
-    if (updates.email && updates.email !== email && currentToken) {
-      const ordersKey = `orders_${currentToken}`;
+    if (updates.email && updates.email !== email) {
+      const ordersKey = 'mfoi_orders';
       const ordersData = localStorage.getItem(ordersKey);
       if (ordersData) {
         const orders = JSON.parse(ordersData);
@@ -159,9 +176,14 @@ function updateAdminInLocalStorage(email: string, updates: Partial<Admin>): void
 }
 
 export async function deleteAdmin(email: string): Promise<void> {
+  // Delete from Supabase first
   if (isSupabaseConfigured && supabase) {
-    return deleteAdminFromSupabase(email);
+    await deleteAdminFromSupabase(email);
+    // Also delete from localStorage cache
+    deleteAdminFromLocalStorage(email);
+    return;
   }
+  // Fallback to localStorage only
   return deleteAdminFromLocalStorage(email);
 }
 
@@ -239,9 +261,8 @@ async function initializeDefaultItemsSupabase(): Promise<void> {
 }
 
 function getItemsFromLocalStorage(): Item[] {
-  if (!currentToken) return [];
-  
-  const key = `items_${currentToken}`;
+  // Use fixed key instead of token-based key to persist data across sessions
+  const key = 'mfoi_items';
   const stored = localStorage.getItem(key);
   
   if (!stored) {
@@ -282,8 +303,8 @@ async function saveItemsToSupabase(items: Item[]): Promise<void> {
 }
 
 function saveItemsToLocalStorage(items: Item[]): void {
-  if (!currentToken) return;
-  const key = `items_${currentToken}`;
+  // Use fixed key instead of token-based key to persist data across sessions
+  const key = 'mfoi_items';
   localStorage.setItem(key, JSON.stringify(items));
 }
 
@@ -463,9 +484,8 @@ async function getOrdersFromSupabase(): Promise<Order[]> {
 }
 
 function getOrdersFromLocalStorage(): Order[] {
-  if (!currentToken) return [];
-  
-  const key = `orders_${currentToken}`;
+  // Use fixed key instead of token-based key to persist data across sessions
+  const key = 'mfoi_orders';
   const stored = localStorage.getItem(key);
   
   if (!stored) {
@@ -636,7 +656,7 @@ function deleteOrderFromLocalStorage(id: string): void {
 }
 
 function saveOrdersToLocalStorage(orders: Order[]): void {
-  if (!currentToken) return;
-  const key = `orders_${currentToken}`;
+  // Use fixed key instead of token-based key to persist data across sessions
+  const key = 'mfoi_orders';
   localStorage.setItem(key, JSON.stringify(orders));
 }
