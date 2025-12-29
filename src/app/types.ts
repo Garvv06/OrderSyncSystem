@@ -50,5 +50,6 @@ export interface Admin {
   password: string;
   name: string;
   role: 'superadmin' | 'admin';
-  createdAt: string;
+  approved: boolean;
+  createdAt?: string;
 }

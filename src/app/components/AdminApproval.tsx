@@ -69,7 +69,9 @@ export function AdminApproval({ token }: AdminApprovalProps) {
                 <h3 className="text-gray-900 mb-1">{request.name}</h3>
                 <p className="text-gray-600">{request.email}</p>
                 <p className="text-gray-500 mt-2">
-                  Requested: {new Date(request.requestedAt).toLocaleString()}
+                  Requested: {request.requestedAt 
+                    ? new Date(request.requestedAt).toLocaleString()
+                    : 'Just now'}
                 </p>
               </div>
 

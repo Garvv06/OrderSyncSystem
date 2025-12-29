@@ -37,6 +37,7 @@ async function getAdminsFromSupabase(): Promise<Admin[]> {
       name: admin.name,
       role: admin.role as 'superadmin' | 'admin',
       approved: admin.approved,
+      createdAt: admin.created_at,
     }));
   } catch (error) {
     console.error('Failed to get admins from Supabase:', error);
@@ -54,6 +55,7 @@ function getAdminsFromLocalStorage(): Admin[] {
       name: 'Super Admin',
       role: 'superadmin',
       approved: true,
+      createdAt: new Date().toISOString(),
     };
     localStorage.setItem('admins', JSON.stringify([defaultAdmin]));
     return [defaultAdmin];
@@ -89,7 +91,11 @@ async function saveAdminToSupabase(admin: Admin): Promise<void> {
 
 function saveAdminToLocalStorage(admin: Admin): void {
   const admins = getAdminsFromLocalStorage();
-  admins.push(admin);
+  const newAdmin = {
+    ...admin,
+    createdAt: admin.createdAt || new Date().toISOString()
+  };
+  admins.push(newAdmin);
   localStorage.setItem('admins', JSON.stringify(admins));
 }
 

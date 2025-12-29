@@ -2,8 +2,26 @@ import { supabase } from './supabase';
 import { getAdmins, saveAdmin, updateAdmin, deleteAdmin } from './storage';
 import { Admin } from '../types';
 
-// Session storage for active tokens
-const activeSessions = new Map<string, { email: string; expiresAt: number }>();
+// Session storage for active tokens - persisted in localStorage
+const SESSION_STORAGE_KEY = 'admin_sessions';
+
+function getActiveSessions(): Map<string, { email: string; expiresAt: number }> {
+  const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+  if (stored) {
+    try {
+      const sessions = JSON.parse(stored);
+      return new Map(Object.entries(sessions));
+    } catch (error) {
+      console.error('Failed to parse sessions:', error);
+    }
+  }
+  return new Map();
+}
+
+function saveActiveSessions(sessions: Map<string, { email: string; expiresAt: number }>) {
+  const sessionsObj = Object.fromEntries(sessions.entries());
+  localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionsObj));
+}
 
 function generateToken(): string {
   return `token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -25,7 +43,9 @@ export const api = {
 
       const token = generateToken();
       const expiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
-      activeSessions.set(token, { email: admin.email, expiresAt });
+      const sessions = getActiveSessions();
+      sessions.set(token, { email: admin.email, expiresAt });
+      saveActiveSessions(sessions);
 
       return {
         success: true,
@@ -67,13 +87,15 @@ export const api = {
 
   async verify(token: string) {
     try {
-      const session = activeSessions.get(token);
+      const session = getActiveSessions().get(token);
       if (!session) {
         return { valid: false };
       }
 
       if (Date.now() > session.expiresAt) {
-        activeSessions.delete(token);
+        const sessions = getActiveSessions();
+        sessions.delete(token);
+        saveActiveSessions(sessions);
         return { valid: false };
       }
 
@@ -95,19 +117,32 @@ export const api = {
   },
 
   async logout(token: string) {
-    activeSessions.delete(token);
+    const sessions = getActiveSessions();
+    sessions.delete(token);
+    saveActiveSessions(sessions);
     return { success: true };
   },
 
   async getPendingAdmins(token: string) {
     try {
-      const session = activeSessions.get(token);
+      const session = getActiveSessions().get(token);
       if (!session) {
         throw new Error('Invalid token');
       }
 
       const admins = await getAdmins();
-      return { pendingAdmins: admins.filter((a) => !a.approved) };
+      const pendingAdmins = admins
+        .filter((a) => !a.approved)
+        .map((a) => ({
+          id: a.email, // Using email as ID for approval/rejection
+          email: a.email,
+          password: a.password,
+          name: a.name,
+          requestedAt: a.createdAt || new Date().toISOString(),
+          status: 'pending' as const,
+        }));
+      
+      return { pendingAdmins };
     } catch (error) {
       console.error('Get pending admins error:', error);
       return { pendingAdmins: [] };
@@ -116,7 +151,7 @@ export const api = {
 
   async approveAdmin(token: string, email: string) {
     try {
-      const session = activeSessions.get(token);
+      const session = getActiveSessions().get(token);
       if (!session) {
         throw new Error('Invalid token');
       }
@@ -131,7 +166,7 @@ export const api = {
 
   async rejectAdmin(token: string, email: string) {
     try {
-      const session = activeSessions.get(token);
+      const session = getActiveSessions().get(token);
       if (!session) {
         throw new Error('Invalid token');
       }
