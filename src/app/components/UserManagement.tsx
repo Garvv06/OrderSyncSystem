@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getOrders, setAuthToken } from '../utils/storage';
+import { getOrders, setAuthToken, getAdmins, updateAdmin, deleteAdmin } from '../utils/storage';
 import { Order, Admin } from '../types';
 import { Users, Package, CheckCircle, Clock, Shield, Trash2, Edit2, Save, X, Key } from 'lucide-react';
 
@@ -38,7 +38,7 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
       setAuthToken(token);
       
       // Get all admins from localStorage
-      const admins: Admin[] = JSON.parse(localStorage.getItem('admins') || '[]');
+      const admins: Admin[] = await getAdmins();
       
       // Find current user role
       const currentUser = admins.find((a) => a.email === currentUserEmail);
@@ -95,17 +95,16 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
     }
   };
 
-  const handleSaveRole = () => {
+  const handleSaveRole = async () => {
     if (!editingUser) return;
 
-    const admins: Admin[] = JSON.parse(localStorage.getItem('admins') || '[]');
-    const adminIndex = admins.findIndex((a) => a.email === editingUser);
-
-    if (adminIndex !== -1) {
-      admins[adminIndex].role = newRole;
-      localStorage.setItem('admins', JSON.stringify(admins));
-      loadUserStats();
+    try {
+      await updateAdmin(editingUser, { role: newRole });
+      await loadUserStats();
       setEditingUser(null);
+    } catch (error) {
+      console.error('Failed to update role:', error);
+      alert('Failed to update role. Please try again.');
     }
   };
 
@@ -126,7 +125,7 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
     }
   };
 
-  const handleSaveCredentials = () => {
+  const handleSaveCredentials = async () => {
     if (!editingCredentials) return;
 
     if (!credentialForm.email.trim() || !credentialForm.password.trim() || !credentialForm.name.trim()) {
@@ -140,10 +139,9 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
       return;
     }
 
-    const admins: Admin[] = JSON.parse(localStorage.getItem('admins') || '[]');
-    const adminIndex = admins.findIndex((a) => a.email === editingCredentials);
-
-    if (adminIndex !== -1) {
+    try {
+      const admins = await getAdmins();
+      
       // Check if new email already exists (except for current user)
       if (credentialForm.email !== editingCredentials) {
         const emailExists = admins.some(a => a.email === credentialForm.email);
@@ -154,37 +152,23 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
       }
 
       // Update admin credentials
-      admins[adminIndex] = {
-        ...admins[adminIndex],
+      await updateAdmin(editingCredentials, {
         email: credentialForm.email,
         password: credentialForm.password,
         name: credentialForm.name,
-      };
+      });
 
-      // Update orders if email changed
-      if (credentialForm.email !== editingCredentials) {
-        const ordersKey = `orders_${token}`;
-        const ordersData = localStorage.getItem(ordersKey);
-        if (ordersData) {
-          const orders = JSON.parse(ordersData);
-          orders.forEach((order: Order) => {
-            if (order.createdBy === editingCredentials) {
-              order.createdBy = credentialForm.email;
-            }
-          });
-          localStorage.setItem(ordersKey, JSON.stringify(orders));
-        }
-      }
-
-      localStorage.setItem('admins', JSON.stringify(admins));
       alert('Credentials updated successfully! Changes will affect login immediately.');
-      loadUserStats();
+      await loadUserStats();
       setEditingCredentials(null);
       setCredentialForm({ email: '', password: '', name: '' });
+    } catch (error) {
+      console.error('Failed to update credentials:', error);
+      alert('Failed to update credentials. Please try again.');
     }
   };
 
-  const handleDeleteUser = (userEmail: string) => {
+  const handleDeleteUser = async (userEmail: string) => {
     if (currentUserRole !== 'superadmin') {
       alert('Only Super Admin can delete users');
       return;
@@ -199,10 +183,13 @@ export function UserManagement({ token, currentUserEmail }: UserManagementProps)
     if (!user) return;
 
     if (confirm(`Delete user ${user.name} (${userEmail})? This action cannot be undone.`)) {
-      const admins: Admin[] = JSON.parse(localStorage.getItem('admins') || '[]');
-      const filtered = admins.filter((a) => a.email !== userEmail);
-      localStorage.setItem('admins', JSON.stringify(filtered));
-      loadUserStats();
+      try {
+        await deleteAdmin(userEmail);
+        await loadUserStats();
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        alert('Failed to delete user. Please try again.');
+      }
     }
   };
 
