@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Admin } from '../types';
 import { api } from '../utils/api';
-import logo from '../../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import logo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 interface LoginProps {
   onLoginSuccess: (token: string, admin: Admin) => void;

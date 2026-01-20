@@ -19,7 +19,9 @@ If you're experiencing issues with:
 
 ## 📚 Documentation
 
-- **[USER_MANAGEMENT_GUIDE.md](./USER_MANAGEMENT_GUIDE.md)** - Complete user management guide (NEW!)
+- **[CSV_IMPORT_EXPORT_GUIDE.md](./CSV_IMPORT_EXPORT_GUIDE.md)** - CSV import/export & bulk operations guide (NEW!)
+- **[USER_MANAGEMENT_GUIDE.md](./USER_MANAGEMENT_GUIDE.md)** - Complete user management guide
+- **[ORDER_MANAGEMENT_UPDATE.md](./ORDER_MANAGEMENT_UPDATE.md)** - New order features & CSV guide
 - **[QUICK_TEST.md](./QUICK_TEST.md)** - Step-by-step testing guide
 - **[FIXES_SUMMARY.md](./FIXES_SUMMARY.md)** - Recent fixes & troubleshooting
 - **[DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)** - Complete deployment guide

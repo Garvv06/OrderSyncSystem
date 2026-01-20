@@ -566,6 +566,44 @@ export async function addOrder(order: Omit<Order, 'id' | 'orderNo'>): Promise<vo
   return addOrderToLocalStorage(order);
 }
 
+// Insert order with specific ID and orderNo (for CSV import)
+export async function insertOrder(order: Order): Promise<void> {
+  if (isSupabaseConfigured && supabase) {
+    return insertOrderToSupabase(order);
+  }
+  return insertOrderToLocalStorage(order);
+}
+
+async function insertOrderToSupabase(order: Order): Promise<void> {
+  try {
+    const { error } = await supabase!
+      .from('orders')
+      .insert({
+        id: order.id,
+        order_no: order.orderNo,
+        order_date: order.orderDate,
+        party_name: order.partyName,
+        items: order.items,
+        total: order.total,
+        status: order.status,
+        created_by: order.createdBy,
+        created_by_name: order.createdByName,
+        order_type: order.orderType,
+      });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Failed to insert order to Supabase:', error);
+    throw error;
+  }
+}
+
+function insertOrderToLocalStorage(order: Order): void {
+  const orders = getOrdersFromLocalStorage();
+  orders.unshift(order);
+  saveOrdersToLocalStorage(orders);
+}
+
 async function addOrderToSupabase(order: Omit<Order, 'id' | 'orderNo'>): Promise<void> {
   try {
     const nextNum = await getNextOrderNumberFromSupabase();
@@ -614,11 +652,6 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
   return updateOrderInLocalStorage(id, updates);
 }
 
-// Helper function to update just the order status
-export async function updateOrderStatus(id: string, status: 'Open' | 'Partially Completed' | 'Completed'): Promise<void> {
-  return updateOrder(id, { status });
-}
-
 async function updateOrderInSupabase(id: string, updates: Partial<Order>): Promise<void> {
   try {
     const { error } = await supabase!
@@ -630,25 +663,37 @@ async function updateOrderInSupabase(id: string, updates: Partial<Order>): Promi
         items: updates.items,
         total: updates.total,
         status: updates.status,
-        created_by: updates.createdBy,
-        created_by_name: updates.createdByName,
+        order_type: updates.orderType,
       })
       .eq('id', id);
 
     if (error) throw error;
   } catch (error) {
-    console.error('Failed to update order in Supabase:', error);
+    console.error('Error updating order in Supabase:', error);
     throw error;
   }
 }
 
 function updateOrderInLocalStorage(id: string, updates: Partial<Order>): void {
   const orders = getOrdersFromLocalStorage();
-  const index = orders.findIndex(o => o.id === id);
-  if (index !== -1) {
-    orders[index] = { ...orders[index], ...updates };
-    saveOrdersToLocalStorage(orders);
+  const orderIndex = orders.findIndex(o => o.id === id);
+  
+  if (orderIndex === -1) {
+    console.error('Order not found:', id);
+    return;
   }
+  
+  orders[orderIndex] = {
+    ...orders[orderIndex],
+    ...updates,
+  };
+  
+  saveOrdersToLocalStorage(orders);
+}
+
+// Helper function to update just the order status
+export async function updateOrderStatus(id: string, status: 'Open' | 'Partially Completed' | 'Completed'): Promise<void> {
+  return updateOrder(id, { status });
 }
 
 export async function deleteOrder(id: string): Promise<void> {
@@ -667,15 +712,15 @@ async function deleteOrderFromSupabase(id: string): Promise<void> {
 
     if (error) throw error;
   } catch (error) {
-    console.error('Failed to delete order from Supabase:', error);
+    console.error('Error deleting order from Supabase:', error);
     throw error;
   }
 }
 
 function deleteOrderFromLocalStorage(id: string): void {
   const orders = getOrdersFromLocalStorage();
-  const filtered = orders.filter(o => o.id !== id);
-  saveOrdersToLocalStorage(filtered);
+  const filteredOrders = orders.filter(o => o.id !== id);
+  saveOrdersToLocalStorage(filteredOrders);
 }
 
 function saveOrdersToLocalStorage(orders: Order[]): void {

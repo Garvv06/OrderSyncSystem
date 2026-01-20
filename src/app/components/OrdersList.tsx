@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
-import { getOrders, updateOrder, setAuthToken, updateItemStock, getItems } from '../utils/storage';
+import { useState, useEffect, useRef } from 'react';
+import { getOrders, updateOrder, setAuthToken, updateItemStock, getItems, deleteOrder, insertOrder } from '../utils/storage';
 import { Order, Item, OrderItem } from '../types';
-import { FileText, CheckCircle, Clock, Package, X } from 'lucide-react';
-import { exportCompletedOrderToCSV } from '../utils/csvExport';
+import { FileText, CheckCircle, Clock, Package, X, Download, Upload, Trash2 } from 'lucide-react';
 
 interface OrdersListProps {
   filter: 'all' | 'pending';
@@ -15,6 +14,8 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Partial completion modal state
   const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
@@ -134,17 +135,14 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
       
       const newStatus = allCompleted ? 'Completed' : someCompleted ? 'Partially Completed' : 'Open';
 
-      // Update order
+      // Update order (NO AUTO CSV EXPORT)
       await updateOrder(completingOrder.id, {
         items: updatedItems,
         status: newStatus,
       });
 
-      // If fully completed, export to CSV
       if (allCompleted) {
-        const completedOrder = { ...completingOrder, items: updatedItems, status: newStatus };
-        await exportCompletedOrderToCSV(completedOrder);
-        alert('✅ Order completed and exported to CSV!');
+        alert('✅ Order completed successfully!');
       } else {
         alert(`✅ Order partially completed with bill #${billNumber}`);
       }
@@ -154,6 +152,231 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
     } catch (error) {
       console.error('Failed to complete order:', error);
       alert('❌ Failed to complete order');
+    }
+  };
+
+  // Export selected orders or all orders to CSV
+  const exportToCSV = () => {
+    const ordersToExport = selectedOrders.size > 0
+      ? filteredOrders.filter(o => selectedOrders.has(o.id))
+      : filteredOrders;
+
+    if (ordersToExport.length === 0) {
+      alert('❌ No orders to export');
+      return;
+    }
+
+    // Create CSV content
+    let csvContent = 'Order No,Party Name,Order Date,Status,Order Type,Item Name,Size,Quantity,Completed Qty,Remaining Qty,Price,Line Total,Bill Numbers\n';
+
+    ordersToExport.forEach(order => {
+      order.items.forEach(item => {
+        const remaining = item.quantity - item.completedQuantity;
+        const bills = item.billNumbers.join(';');
+        csvContent += `"${order.orderNo}","${order.partyName}","${new Date(order.orderDate).toLocaleDateString()}","${order.status}","${order.orderType}","${item.itemName}","${item.size}",${item.quantity},${item.completedQuantity},${remaining},${item.price},${item.lineTotal},"${bills}"\n`;
+      });
+    });
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${orderType}_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    alert(`✅ Exported ${ordersToExport.length} order(s) to CSV`);
+  };
+
+  // Import orders from CSV
+  const handleImportCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          alert('❌ CSV file is empty');
+          return;
+        }
+
+        // Helper function to parse CSV line properly
+        const parseCSVLine = (line: string): string[] => {
+          const result: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          
+          result.push(current.trim());
+          return result;
+        };
+
+        // Parse CSV
+        const headers = parseCSVLine(lines[0]);
+        console.log('CSV Headers:', headers);
+        
+        const ordersMap = new Map<string, any>();
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = parseCSVLine(lines[i]);
+          
+          console.log(`Row ${i}:`, values);
+          
+          if (values.length < 8) {
+            console.warn(`Row ${i}: Insufficient columns (${values.length}), skipping`);
+            continue;
+          }
+
+          const orderNo = values[0];
+          const partyName = values[1];
+          const orderDate = values[2];
+          const status = values[3];
+          const importedOrderType = values[4].toLowerCase();
+          const itemName = values[5];
+          const size = values[6];
+          const quantity = parseInt(values[7]) || 0;
+          const completedQty = parseInt(values[8]) || 0;
+          const price = parseFloat(values[10]) || 0;
+          const bills = values[12] ? values[12].split(';').map(b => b.trim()).filter(b => b) : [];
+
+          console.log(`Searching for item: "${itemName}" with size: "${size}"`);
+
+          // Find matching item
+          const matchingItem = items.find(item => 
+            item.name.toLowerCase() === itemName.toLowerCase() &&
+            item.sizes.some(s => s.size === size)
+          );
+
+          if (!matchingItem) {
+            console.warn(`Item not found: ${itemName} (${size})`);
+            alert(`⚠️ Item not found: "${itemName}" with size "${size}"\n\nPlease check:\n1. Item name matches exactly (case-insensitive)\n2. Size matches exactly (case-sensitive)\n3. Item exists in your Items tab\n\nRow ${i} will be skipped.`);
+            continue;
+          }
+
+          if (!ordersMap.has(orderNo)) {
+            ordersMap.set(orderNo, {
+              orderNo,
+              partyName,
+              orderDate: new Date(orderDate).toISOString(),
+              status,
+              orderType: importedOrderType,
+              items: [],
+            });
+          }
+
+          const order = ordersMap.get(orderNo);
+          order.items.push({
+            id: `${Date.now()}_${Math.random()}`,
+            itemId: matchingItem.id,
+            itemName: matchingItem.name,
+            size,
+            quantity,
+            completedQuantity: completedQty,
+            price,
+            lineTotal: quantity * price,
+            billNumbers: bills,
+          });
+        }
+
+        if (ordersMap.size === 0) {
+          alert('❌ No valid orders found in CSV. Please check the format and item names.');
+          return;
+        }
+
+        // Import orders
+        let imported = 0;
+        for (const orderData of ordersMap.values()) {
+          const total = orderData.items.reduce((sum: number, item: any) => sum + item.lineTotal, 0);
+          
+          const newOrder: Order = {
+            id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            orderNo: orderData.orderNo,
+            partyName: orderData.partyName,
+            orderDate: orderData.orderDate,
+            status: orderData.status,
+            orderType: orderData.orderType,
+            items: orderData.items,
+            total,
+            createdBy: 'Import',
+            createdByEmail: 'import@system.com',
+          };
+
+          await insertOrder(newOrder);
+          imported++;
+        }
+
+        alert(`✅ Successfully imported ${imported} order(s)`);
+        await loadData();
+      } catch (error) {
+        console.error('Import error:', error);
+        alert('❌ Failed to import CSV. Please check the format.');
+      }
+    };
+
+    reader.readAsText(file);
+    event.target.value = ''; // Reset input
+  };
+
+  // Toggle order selection
+  const toggleSelectOrder = (orderId: string) => {
+    const newSelected = new Set(selectedOrders);
+    if (newSelected.has(orderId)) {
+      newSelected.delete(orderId);
+    } else {
+      newSelected.add(orderId);
+    }
+    setSelectedOrders(newSelected);
+  };
+
+  // Select all orders
+  const toggleSelectAll = () => {
+    if (selectedOrders.size === filteredOrders.length) {
+      setSelectedOrders(new Set());
+    } else {
+      setSelectedOrders(new Set(filteredOrders.map(o => o.id)));
+    }
+  };
+
+  // Delete selected orders
+  const deleteSelectedOrders = async () => {
+    if (selectedOrders.size === 0) {
+      alert('❌ No orders selected');
+      return;
+    }
+
+    const confirmed = confirm(`⚠️ Are you sure you want to delete ${selectedOrders.size} order(s)? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      for (const orderId of selectedOrders) {
+        await deleteOrder(orderId);
+      }
+
+      alert(`✅ Deleted ${selectedOrders.size} order(s)`);
+      setSelectedOrders(new Set());
+      await loadData();
+    } catch (error) {
+      console.error('Failed to delete orders:', error);
+      alert('❌ Failed to delete orders');
     }
   };
 
@@ -181,21 +404,82 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
   return (
     <>
       <div className="space-y-4">
-        <div className="mb-6">
-          <h2 className="text-gray-900 mb-2 font-semibold text-xl">
-            {filter === 'pending' ? (
-              <>
-                <Clock className="inline size-6 mr-2" />
-                Pending {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
-              </>
-            ) : (
-              <>
-                <FileText className="inline size-6 mr-2" />
-                All {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
-              </>
-            )}
-          </h2>
-          <p className="text-gray-600">{filteredOrders.length} orders found</p>
+        {/* Header with Actions */}
+        <div className="mb-6 bg-white rounded-lg shadow-md p-4 border-2 border-gray-200">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-gray-900 mb-1 font-semibold text-xl">
+                {filter === 'pending' ? (
+                  <>
+                    <Clock className="inline size-6 mr-2" />
+                    Pending {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
+                  </>
+                ) : (
+                  <>
+                    <FileText className="inline size-6 mr-2" />
+                    All {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
+                  </>
+                )}
+              </h2>
+              <p className="text-gray-600">{filteredOrders.length} orders found • {selectedOrders.size} selected</p>
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              {/* Export CSV Button */}
+              <button
+                onClick={exportToCSV}
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors shadow-md"
+              >
+                <Download className="size-5" />
+                Export to CSV
+              </button>
+
+              {/* Import CSV Button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors shadow-md"
+              >
+                <Upload className="size-5" />
+                Import CSV
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleImportCSV}
+                className="hidden"
+              />
+
+              {/* Delete Selected Button */}
+              <button
+                onClick={deleteSelectedOrders}
+                disabled={selectedOrders.size === 0}
+                className={`${
+                  selectedOrders.size === 0
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-600 hover:bg-red-700'
+                } text-white px-4 py-2 rounded-lg flex items-center gap-2 font-semibold transition-colors shadow-md`}
+              >
+                <Trash2 className="size-5" />
+                Delete Selected ({selectedOrders.size})
+              </button>
+            </div>
+          </div>
+
+          {/* Select All Checkbox */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedOrders.size === filteredOrders.length && filteredOrders.length > 0}
+                onChange={toggleSelectAll}
+                className="size-5 cursor-pointer"
+              />
+              <span className="text-gray-700 font-semibold">
+                Select All ({filteredOrders.length} orders)
+              </span>
+            </label>
+          </div>
         </div>
 
         {filteredOrders.map((order) => {
@@ -208,22 +492,35 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
                 className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
                 onClick={() => toggleExpand(order.id)}
               >
-                <div>
-                  <p className="text-gray-900 font-semibold text-lg">{order.partyName}</p>
-                  <p className="text-gray-600 text-sm">
-                    Order #{order.orderNo} • {new Date(order.orderDate).toLocaleDateString()} •{' '}
-                    <span
-                      className={`font-semibold ${
-                        order.status === 'Completed'
-                          ? 'text-green-600'
-                          : order.status === 'Partially Completed'
-                          ? 'text-orange-600'
-                          : 'text-blue-600'
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </p>
+                <div className="flex items-center gap-3">
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={selectedOrders.has(order.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      toggleSelectOrder(order.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="size-5 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-gray-900 font-semibold text-lg">{order.partyName}</p>
+                    <p className="text-gray-600 text-sm">
+                      Order #{order.orderNo} • {new Date(order.orderDate).toLocaleDateString()} •{' '}
+                      <span
+                        className={`font-semibold ${
+                          order.status === 'Completed'
+                            ? 'text-green-600'
+                            : order.status === 'Partially Completed'
+                            ? 'text-orange-600'
+                            : 'text-blue-600'
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-gray-900 font-bold text-lg">₹{order.total.toFixed(2)}</p>
