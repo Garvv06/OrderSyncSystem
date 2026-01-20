@@ -1,154 +1,161 @@
 import { useState, useEffect } from 'react';
-import { getOrders, updateOrder, deleteOrder, setAuthToken, getItems, updateItemStock } from '../utils/storage';
-import { Order, OrderItem } from '../types';
-import { Eye, Trash2, CheckCircle, Clock, Search, X } from 'lucide-react';
+import { getOrders, updateOrder, setAuthToken, updateItemStock, getItems } from '../utils/storage';
+import { Order, Item, OrderItem } from '../types';
+import { FileText, CheckCircle, Clock, Package, X } from 'lucide-react';
+import { exportCompletedOrderToCSV } from '../utils/csvExport';
 
 interface OrdersListProps {
   filter: 'all' | 'pending';
   token: string;
+  orderType: 'purchase' | 'sale';
 }
 
-export function OrdersList({ filter, token }: OrdersListProps) {
+export function OrdersList({ filter, token, orderType }: OrdersListProps) {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [partyFilter, setPartyFilter] = useState('');
-  const [showPartialComplete, setShowPartialComplete] = useState(false);
-  const [orderToComplete, setOrderToComplete] = useState<Order | null>(null);
-  const [partialSelections, setPartialSelections] = useState<{[key: string]: number}>({});
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  
+  // Partial completion modal state
+  const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
   const [billNumber, setBillNumber] = useState('');
+  const [selectedItems, setSelectedItems] = useState<{ [itemId: string]: number }>({});
 
   useEffect(() => {
-    loadOrders();
-  }, [filter, token]);
+    loadData();
+  }, [token, orderType]);
 
-  const loadOrders = async () => {
+  const loadData = async () => {
     try {
       setAuthToken(token);
-      let allOrders = await getOrders();
-      if (filter === 'pending') {
-        allOrders = allOrders.filter((order) => order.status === 'Open' || order.status === 'Partially Completed');
-      }
-      setOrders(allOrders);
+      const [ordersData, itemsData] = await Promise.all([getOrders(), getItems()]);
+      setOrders(ordersData);
+      setItems(itemsData);
     } catch (error) {
-      console.error('Failed to load orders:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleShowPartialComplete = (order: Order) => {
-    setOrderToComplete(order);
-    setShowPartialComplete(true);
-    // Initialize partial selections with remaining quantities
-    const selections: {[key: string]: number} = {};
-    order.items.forEach(item => {
-      const remaining = item.quantity - item.completedQuantity;
-      selections[item.id] = 0; // Start with 0, user can select amount to complete
-    });
-    setPartialSelections(selections);
-    setBillNumber('');
+  const toggleExpand = (orderId: string) => {
+    const newExpanded = new Set(expandedOrders);
+    if (newExpanded.has(orderId)) {
+      newExpanded.delete(orderId);
+    } else {
+      newExpanded.add(orderId);
+    }
+    setExpandedOrders(newExpanded);
   };
 
-  const handlePartialComplete = async () => {
-    if (!orderToComplete || !billNumber.trim()) {
-      alert('Please enter a bill number');
+  const openCompletionModal = (order: Order) => {
+    setCompletingOrder(order);
+    setBillNumber('');
+    setSelectedItems({});
+  };
+
+  const closeCompletionModal = () => {
+    setCompletingOrder(null);
+    setBillNumber('');
+    setSelectedItems({});
+  };
+
+  const updateSelectedQuantity = (itemId: string, quantity: number) => {
+    const orderItem = completingOrder?.items.find(i => i.id === itemId);
+    if (!orderItem) return;
+
+    const remainingQty = orderItem.quantity - orderItem.completedQuantity;
+    const validQty = Math.min(Math.max(0, quantity), remainingQty);
+
+    if (validQty === 0) {
+      const newSelected = { ...selectedItems };
+      delete newSelected[itemId];
+      setSelectedItems(newSelected);
+    } else {
+      setSelectedItems({ ...selectedItems, [itemId]: validQty });
+    }
+  };
+
+  const completeOrderPartially = async () => {
+    if (!completingOrder) return;
+    
+    if (!billNumber.trim()) {
+      alert('Please enter bill number');
       return;
     }
 
-    // Check if at least one item is selected
-    const hasSelection = Object.values(partialSelections).some(qty => qty > 0);
-    if (!hasSelection) {
-      alert('Please select at least one item to complete');
+    const itemsToComplete = Object.keys(selectedItems);
+    if (itemsToComplete.length === 0) {
+      alert('Please select items to complete');
       return;
     }
 
     try {
-      // Update the order with partial completion
-      const updatedItems = orderToComplete.items.map(item => {
-        const completingQty = partialSelections[item.id] || 0;
-        const newCompletedQty = item.completedQuantity + completingQty;
-        
-        const billNumbers = item.billNumbers || [];
-        if (completingQty > 0) {
-          billNumbers.push(billNumber.trim());
-        }
+      // Update stock for each completed item
+      for (const itemId of itemsToComplete) {
+        const orderItem = completingOrder.items.find(i => i.id === itemId);
+        if (!orderItem) continue;
 
-        return {
-          ...item,
-          completedQuantity: newCompletedQty,
-          billNumbers,
-        };
+        const item = items.find(i => i.id === orderItem.itemId);
+        if (!item) continue;
+
+        const completedQty = selectedItems[itemId];
+        
+        // Calculate new stock
+        const newStocks: { [size: string]: number } = {};
+        item.sizes.forEach((sz) => {
+          if (sz.size === orderItem.size) {
+            // For PURCHASE orders, ADD stock. For SALE orders, SUBTRACT stock
+            const stockChange = orderType === 'purchase' ? completedQty : -completedQty;
+            newStocks[sz.size] = Math.max(0, sz.stock + stockChange);
+          } else {
+            newStocks[sz.size] = sz.stock;
+          }
+        });
+
+        await updateItemStock(item.id, newStocks);
+      }
+
+      // Update order items with completed quantities and bill numbers
+      const updatedItems = completingOrder.items.map(orderItem => {
+        if (selectedItems[orderItem.id]) {
+          return {
+            ...orderItem,
+            completedQuantity: orderItem.completedQuantity + selectedItems[orderItem.id],
+            billNumbers: [...orderItem.billNumbers, billNumber.trim()],
+          };
+        }
+        return orderItem;
       });
 
-      // Determine new status
+      // Check if all items are fully completed
       const allCompleted = updatedItems.every(item => item.completedQuantity >= item.quantity);
       const someCompleted = updatedItems.some(item => item.completedQuantity > 0);
       
-      let newStatus: 'Open' | 'Partially Completed' | 'Completed';
-      if (allCompleted) {
-        newStatus = 'Completed';
-      } else if (someCompleted) {
-        newStatus = 'Partially Completed';
-      } else {
-        newStatus = 'Open';
-      }
+      const newStatus = allCompleted ? 'Completed' : someCompleted ? 'Partially Completed' : 'Open';
 
-      // Reduce stock for completed items
-      const items = await getItems();
-      for (const orderItem of updatedItems) {
-        const completingQty = partialSelections[orderItem.id] || 0;
-        if (completingQty > 0) {
-          const item = items.find(i => i.id === orderItem.itemId);
-          if (item) {
-            const sizeIndex = item.sizes.findIndex(s => s.size === orderItem.size);
-            if (sizeIndex !== -1) {
-              const newStock = item.sizes[sizeIndex].stock - completingQty;
-              await updateItemStock(item.id, orderItem.size, newStock);
-            }
-          }
-        }
-      }
-
-      await updateOrder(orderToComplete.id, {
+      // Update order
+      await updateOrder(completingOrder.id, {
         items: updatedItems,
         status: newStatus,
       });
 
-      await loadOrders();
-      setShowPartialComplete(false);
-      setOrderToComplete(null);
-      setPartialSelections({});
-      setBillNumber('');
-      setSelectedOrder(null);
+      // If fully completed, export to CSV
+      if (allCompleted) {
+        const completedOrder = { ...completingOrder, items: updatedItems, status: newStatus };
+        await exportCompletedOrderToCSV(completedOrder);
+        alert('✅ Order completed and exported to CSV!');
+      } else {
+        alert(`✅ Order partially completed with bill #${billNumber}`);
+      }
+
+      closeCompletionModal();
+      await loadData();
     } catch (error) {
       console.error('Failed to complete order:', error);
-      alert('Failed to complete order');
+      alert('❌ Failed to complete order');
     }
   };
-
-  const handleDeleteOrder = async (orderId: string, orderNo: string) => {
-    if (confirm(`Delete order ${orderNo}? This action cannot be undone.`)) {
-      try {
-        await deleteOrder(orderId);
-        await loadOrders();
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(null);
-        }
-      } catch (error) {
-        console.error('Failed to delete order:', error);
-        alert('Failed to delete order');
-      }
-    }
-  };
-
-  const filteredOrders = partyFilter
-    ? orders.filter((order) =>
-        order.partyName.toLowerCase().includes(partyFilter.toLowerCase())
-      )
-    : orders;
-
-  const uniqueParties = Array.from(new Set(orders.map((o) => o.partyName)));
 
   if (loading) {
     return (
@@ -158,367 +165,224 @@ export function OrdersList({ filter, token }: OrdersListProps) {
     );
   }
 
-  return (
-    <div>
-      <div className="mb-6">
-        <h2 className="text-gray-900 mb-2">
-          {filter === 'pending' ? '⏳ Remaining Orders' : '📋 All Orders'}
-        </h2>
-        <p className="text-gray-600">
-          {filter === 'pending' ? 'View and manage remaining orders' : 'View all orders'}
-        </p>
+  const filteredOrders = orders
+    .filter((o) => o.orderType === orderType)
+    .filter((o) => filter === 'all' || o.status === 'Open' || o.status === 'Partially Completed');
+
+  if (filteredOrders.length === 0) {
+    return (
+      <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
+        <FileText className="size-12 text-gray-400 mx-auto mb-4" />
+        <p className="text-gray-500">No {filter === 'pending' ? 'pending' : ''} {orderType} orders found</p>
       </div>
+    );
+  }
 
-      {/* Party Filter */}
-      {filter === 'all' && (
-        <div className="bg-white p-4 rounded-lg border border-gray-200 mb-6">
-          <label className="block text-gray-700 mb-2">Filter by Party Name</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 size-4 text-gray-400" />
-            <input
-              type="text"
-              list="party-names"
-              placeholder="Search by party name..."
-              value={partyFilter}
-              onChange={(e) => setPartyFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-            />
-            <datalist id="party-names">
-              {uniqueParties.map((party, idx) => (
-                <option key={idx} value={party} />
-              ))}
-            </datalist>
-          </div>
+  return (
+    <>
+      <div className="space-y-4">
+        <div className="mb-6">
+          <h2 className="text-gray-900 mb-2 font-semibold text-xl">
+            {filter === 'pending' ? (
+              <>
+                <Clock className="inline size-6 mr-2" />
+                Pending {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
+              </>
+            ) : (
+              <>
+                <FileText className="inline size-6 mr-2" />
+                All {orderType === 'purchase' ? 'Purchase' : 'Sale'} Orders
+              </>
+            )}
+          </h2>
+          <p className="text-gray-600">{filteredOrders.length} orders found</p>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Orders List */}
-        <div className="space-y-4">
-          {filteredOrders.length === 0 ? (
-            <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
-              {filter === 'pending' ? (
-                <>
-                  <Clock className="size-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">No remaining orders</p>
-                </>
-              ) : (
-                <p className="text-gray-500">No orders found</p>
-              )}
-            </div>
-          ) : (
-            filteredOrders.map((order) => (
+        {filteredOrders.map((order) => {
+          const allCompleted = order.items.every(item => item.completedQuantity >= item.quantity);
+          const hasPartial = order.items.some(item => item.completedQuantity > 0);
+
+          return (
+            <div key={order.id} className="bg-white rounded-lg border-2 border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
               <div
-                key={order.id}
-                className={`bg-white p-6 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedOrder?.id === order.id
-                    ? 'border-red-500'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-                onClick={() => setSelectedOrder(order)}
+                className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                onClick={() => toggleExpand(order.id)}
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-gray-900 mb-1">{order.orderNo}</h3>
-                    <p className="text-gray-600">Party: {order.partyName}</p>
+                <div>
+                  <p className="text-gray-900 font-semibold text-lg">{order.partyName}</p>
+                  <p className="text-gray-600 text-sm">
+                    Order #{order.orderNo} • {new Date(order.orderDate).toLocaleDateString()} •{' '}
+                    <span
+                      className={`font-semibold ${
+                        order.status === 'Completed'
+                          ? 'text-green-600'
+                          : order.status === 'Partially Completed'
+                          ? 'text-orange-600'
+                          : 'text-blue-600'
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-gray-900 font-bold text-lg">₹{order.total.toFixed(2)}</p>
+                  <p className="text-gray-600 text-sm">{order.items.length} items</p>
+                </div>
+              </div>
+
+              {expandedOrders.has(order.id) && (
+                <div className="border-t-2 border-gray-200 p-4 bg-gray-50">
+                  <div className="overflow-x-auto mb-4">
+                    <table className="w-full">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-gray-700 font-semibold">Item</th>
+                          <th className="px-4 py-3 text-left text-gray-700 font-semibold">Size</th>
+                          <th className="px-4 py-3 text-right text-gray-700 font-semibold">Ordered</th>
+                          <th className="px-4 py-3 text-right text-gray-700 font-semibold">Completed</th>
+                          <th className="px-4 py-3 text-right text-gray-700 font-semibold">Remaining</th>
+                          <th className="px-4 py-3 text-right text-gray-700 font-semibold">Price</th>
+                          <th className="px-4 py-3 text-right text-gray-700 font-semibold">Total</th>
+                          <th className="px-4 py-3 text-left text-gray-700 font-semibold">Bills</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white">
+                        {order.items.map((item) => {
+                          const remaining = item.quantity - item.completedQuantity;
+                          return (
+                            <tr key={item.id} className="border-b hover:bg-gray-50">
+                              <td className="px-4 py-3 text-gray-900">{item.itemName}</td>
+                              <td className="px-4 py-3 text-gray-700">{item.size}</td>
+                              <td className="px-4 py-3 text-right text-gray-700">{item.quantity}</td>
+                              <td className="px-4 py-3 text-right text-green-600 font-semibold">{item.completedQuantity}</td>
+                              <td className="px-4 py-3 text-right text-orange-600 font-semibold">{remaining}</td>
+                              <td className="px-4 py-3 text-right text-gray-700">₹{item.price.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-right text-gray-900 font-semibold">₹{item.lineTotal.toFixed(2)}</td>
+                              <td className="px-4 py-3 text-gray-700 text-sm">
+                                {item.billNumbers.length > 0 ? item.billNumbers.join(', ') : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                  <span
-                    className={`px-3 py-1 rounded-full ${
-                      order.status === 'Completed'
-                        ? 'bg-green-100 text-green-800'
-                        : order.status === 'Partially Completed'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-orange-100 text-orange-800'
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </div>
 
-                <div className="text-gray-600 mb-3">
-                  <p>Date: {new Date(order.orderDate).toLocaleString()}</p>
-                  <p>Items: {order.items.length}</p>
-                  <p>By: {order.createdByName}</p>
-                  {order.status !== 'Open' && (
-                    <p className="text-sm mt-1">
-                      Progress: {order.items.reduce((sum, item) => sum + item.completedQuantity, 0)} / {order.items.reduce((sum, item) => sum + item.quantity, 0)} units
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-900">₹{order.total.toFixed(2)}</span>
-                  <div className="flex gap-2">
-                    {(order.status === 'Open' || order.status === 'Partially Completed') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleShowPartialComplete(order);
-                        }}
-                        className="text-green-600 hover:text-green-800"
-                        title="Complete Items"
-                      >
-                        <CheckCircle className="size-5" />
-                      </button>
-                    )}
-                    {(order.status === 'Open' || order.status === 'Partially Completed') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteOrder(order.id, order.orderNo);
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete Order"
-                      >
-                        <Trash2 className="size-5" />
-                      </button>
-                    )}
-                    {order.status === 'Completed' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteOrder(order.id, order.orderNo);
-                        }}
-                        className="text-red-600 hover:text-red-800"
-                        title="Delete Order"
-                      >
-                        <Trash2 className="size-5" />
-                      </button>
-                    )}
+                  {order.status !== 'Completed' && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedOrder(order);
+                        openCompletionModal(order);
                       }}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="View Details"
+                      className={`${
+                        orderType === 'purchase' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
+                      } text-white px-6 py-3 rounded-lg flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all`}
                     >
-                      <Eye className="size-5" />
+                      <CheckCircle className="size-5" />
+                      Complete Order (Full or Partial)
                     </button>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))
-          )}
-        </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-        {/* Order Details */}
-        <div className="lg:sticky lg:top-6">
-          {selectedOrder ? (
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-900">Order Details</h3>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <X className="size-5" />
-                </button>
-              </div>
+      {/* Partial Completion Modal */}
+      {completingOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 flex items-center justify-between">
+              <h3 className="text-xl font-bold">Complete Order - {completingOrder.partyName}</h3>
+              <button onClick={closeCompletionModal} className="text-white hover:text-red-400 transition-colors">
+                <X className="size-6" />
+              </button>
+            </div>
 
-              <div className="space-y-4 mb-6">
-                <div>
-                  <p className="text-gray-600">Order Number</p>
-                  <p className="text-gray-900">{selectedOrder.orderNo}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Party Name</p>
-                  <p className="text-gray-900">{selectedOrder.partyName}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Order Date</p>
-                  <p className="text-gray-900">
-                    {new Date(selectedOrder.orderDate).toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Created By</p>
-                  <p className="text-gray-900">{selectedOrder.createdByName}</p>
-                </div>
-                <div>
-                  <p className="text-gray-600">Status</p>
-                  <span
-                    className={`inline-block px-3 py-1 rounded-full ${
-                      selectedOrder.status === 'Completed'
-                        ? 'bg-green-100 text-green-800'
-                        : selectedOrder.status === 'Partially Completed'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-orange-100 text-orange-800'
-                    }`}
-                  >
-                    {selectedOrder.status}
-                  </span>
-                </div>
+            <div className="p-6 space-y-6">
+              {/* Bill Number Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">Bill Number *</label>
+                <input
+                  type="text"
+                  value={billNumber}
+                  onChange={(e) => setBillNumber(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter bill number (e.g., BILL-001)"
+                />
               </div>
 
-              <div className="border-t border-gray-200 pt-4 mb-4">
-                <h4 className="text-gray-900 mb-3">Order Items</h4>
-                <div className="space-y-2">
-                  {selectedOrder.items.map((item, index) => {
+              {/* Items Selection */}
+              <div>
+                <h4 className="text-gray-900 font-semibold mb-3">Select Items & Quantities to Complete</h4>
+                <div className="space-y-3">
+                  {completingOrder.items.map((item) => {
                     const remaining = item.quantity - item.completedQuantity;
+                    if (remaining <= 0) return null;
+
                     return (
-                      <div key={item.id} className="bg-gray-50 p-3 rounded-lg">
-                        <p className="text-gray-900">
-                          {index + 1}. {item.itemName} - {item.size}
-                        </p>
-                        <p className="text-gray-600">
-                          Qty: {item.quantity} × ₹{item.price} = ₹{item.lineTotal.toFixed(2)}
-                        </p>
-                        {item.completedQuantity > 0 && (
-                          <div className="mt-2 space-y-1">
-                            <p className="text-green-600">
-                              ✓ Completed: {item.completedQuantity} units
+                      <div key={item.id} className="bg-gray-50 p-4 rounded-lg border-2 border-gray-200">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1">
+                            <p className="text-gray-900 font-semibold">{item.itemName}</p>
+                            <p className="text-gray-600 text-sm">
+                              Size: {item.size} | Remaining: <span className="font-semibold text-orange-600">{remaining}</span>
                             </p>
-                            {remaining > 0 && (
-                              <p className="text-orange-600">
-                                ⏳ Remaining: {remaining} units
-                              </p>
-                            )}
-                            {item.billNumbers && item.billNumbers.length > 0 && (
-                              <p className="text-gray-600 text-sm">
-                                Bills: {item.billNumbers.join(', ')}
-                              </p>
-                            )}
                           </div>
-                        )}
-                        {item.completedQuantity === 0 && (
-                          <p className="text-orange-600 mt-1">
-                            ⏳ Pending: {item.quantity} units
-                          </p>
-                        )}
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateSelectedQuantity(item.id, remaining)}
+                              className={`${
+                                orderType === 'purchase' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'
+                              } text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors`}
+                            >
+                              Fill Remaining
+                            </button>
+                            <div className="w-32">
+                              <label className="block text-gray-700 text-sm mb-1">Complete Qty</label>
+                              <input
+                                type="number"
+                                min="0"
+                                max={remaining}
+                                value={selectedItems[item.id] || ''}
+                                onChange={(e) => updateSelectedQuantity(item.id, parseInt(e.target.value) || 0)}
+                                onFocus={(e) => e.target.select()}
+                                className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="0"
+                              />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900">Total Amount</span>
-                  <span className="text-gray-900">
-                    ₹{selectedOrder.total.toFixed(2)}
-                  </span>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t-2">
+                <button
+                  onClick={closeCompletionModal}
+                  className="flex-1 bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={completeOrderPartially}
+                  className={`flex-1 ${
+                    orderType === 'purchase' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'
+                  } text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2 transition-colors`}
+                >
+                  <CheckCircle className="size-5" />
+                  Complete Selected Items
+                </button>
               </div>
-            </div>
-          ) : (
-            <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
-              <Eye className="size-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">Select an order to view details</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Partial Complete Modal */}
-      {showPartialComplete && orderToComplete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-gray-900 mb-2">Complete Items - {orderToComplete.orderNo}</h3>
-            <p className="text-gray-600 mb-4">Party: <strong>{orderToComplete.partyName}</strong></p>
-            
-            {/* Show Previous Bills */}
-            {orderToComplete.items.some(item => item.billNumbers && item.billNumbers.length > 0) && (
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
-                <h4 className="text-gray-900 mb-2">📄 Previous Bills for this Order:</h4>
-                <div className="space-y-1">
-                  {Array.from(new Set(orderToComplete.items.flatMap(item => item.billNumbers || []))).map((bill, idx) => (
-                    <p key={idx} className="text-gray-700">• {bill}</p>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <p className="text-gray-600 mb-4">
-              Select which items/sizes to complete and enter quantities:
-            </p>
-
-            <div className="space-y-3 mb-6">
-              {orderToComplete.items.map((item) => {
-                const remaining = item.quantity - item.completedQuantity;
-                if (remaining <= 0) return null;
-
-                return (
-                  <div key={item.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <p className="text-gray-900 mb-1">
-                      {item.itemName} - {item.size}
-                    </p>
-                    <p className="text-gray-600 mb-2">
-                      Remaining: {remaining} units (₹{item.price}/unit)
-                    </p>
-                    {item.completedQuantity > 0 && (
-                      <p className="text-green-600 mb-2 text-sm">
-                        ✓ Previously Completed: {item.completedQuantity} units
-                        {item.billNumbers && item.billNumbers.length > 0 && ` (Bills: ${item.billNumbers.join(', ')})`}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <label className="text-gray-700">Complete Qty:</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max={remaining}
-                        value={partialSelections[item.id] === 0 ? '' : partialSelections[item.id]}
-                        onChange={(e) => {
-                          const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                          setPartialSelections({
-                            ...partialSelections,
-                            [item.id]: Math.min(val, remaining),
-                          });
-                        }}
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                        placeholder="0"
-                      />
-                      <button
-                        onClick={() => {
-                          setPartialSelections({
-                            ...partialSelections,
-                            [item.id]: remaining,
-                          });
-                        }}
-                        className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                      >
-                        All
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-gray-700 mb-2">Bill Number (Alphanumeric) *</label>
-              <input
-                type="text"
-                value={billNumber}
-                onChange={(e) => setBillNumber(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                placeholder="e.g., BILL-001, INV2024-123"
-              />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handlePartialComplete}
-                className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-              >
-                Complete Selected Items
-              </button>
-              <button
-                onClick={() => {
-                  setShowPartialComplete(false);
-                  setOrderToComplete(null);
-                  setPartialSelections({});
-                  setBillNumber('');
-                }}
-                className="flex-1 bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
-              >
-                Cancel
-              </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

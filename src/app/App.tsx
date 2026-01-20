@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import logo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
-import { Order, Admin, Fastener, OrderItem, CompletionRecord } from './types';
+import logo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import { Admin } from './types';
 import { api } from './utils/api';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ItemsList } from './components/ItemsList';
 import { OrdersList } from './components/OrdersList';
-import { NewOrder } from './components/NewOrder';
+import { CreateOrder } from './components/CreateOrder';
 import { AdminApproval } from './components/AdminApproval';
 import { UserManagement } from './components/UserManagement';
-import { LogOut, Package, ShoppingCart, FileText, UserCheck, Users, LayoutDashboard, Clock, PlusCircle, Cloud, HardDrive } from 'lucide-react';
+import { LogOut, Package, ShoppingCart, FileText, UserCheck, Users, LayoutDashboard, Clock, ShoppingBag, Cloud, HardDrive, Menu, X } from 'lucide-react';
 import { isSupabaseConfigured } from './utils/supabase';
 
-type View = 'dashboard' | 'items' | 'all-orders' | 'remaining-orders' | 'new-order' | 'admin-approval' | 'user-management';
+type View = 'dashboard' | 'items' | 'all-orders' | 'pending-orders' | 'purchase-order' | 'sale-order' | 'admin-approval' | 'user-management';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -20,8 +20,9 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orderTypeView, setOrderTypeView] = useState<'purchase' | 'sale'>('purchase');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Check for existing session on mount
   useEffect(() => {
     const storedToken = localStorage.getItem('admin_token');
     if (storedToken) {
@@ -66,11 +67,16 @@ export default function App() {
     localStorage.removeItem('admin_token');
   };
 
+  const navigateTo = (view: View) => {
+    setCurrentView(view);
+    setSidebarOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin size-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <div className="animate-spin size-12 border-4 border-red-600 border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -82,165 +88,273 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b-4 border-red-600 shadow-md sticky top-0 z-10">
-        <div className="px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {/* MFOI Logo */}
-            <img 
-              src={logo} 
-              alt="MFOI Logo" 
-              className="h-12 w-auto"
-            />
-            <div>
-              <h1 className="text-gray-900">Order Management</h1>
-              <p className="text-gray-600">Welcome, {admin?.name}</p>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-gray-900 to-gray-800 border-r-4 border-red-600 shadow-2xl transform transition-transform duration-300 ease-in-out ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } lg:translate-x-0 lg:static`}>
+        <div className="flex flex-col h-full">
+          {/* Sidebar Header */}
+          <div className="p-6 border-b border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <img src={logo} alt="MFOI Logo" className="h-12 w-auto" />
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden text-white hover:text-red-400 transition-colors"
+              >
+                <X className="size-6" />
+              </button>
+            </div>
+            <div className="text-white">
+              <p className="font-semibold">{admin?.name}</p>
+              <p className="text-gray-400 text-sm">{admin?.role}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-          >
-            <LogOut className="size-4" />
-            Logout
-          </button>
-        </div>
-      </header>
 
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200">
-        <div className="px-6 py-3 flex gap-2 overflow-x-auto">
-          <button
-            onClick={() => setCurrentView('dashboard')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'dashboard'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <LayoutDashboard className="size-4" />
-            Dashboard
-          </button>
-          <button
-            onClick={() => setCurrentView('items')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'items'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Package className="size-4" />
-            Item List
-          </button>
-          <button
-            onClick={() => setCurrentView('new-order')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'new-order'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <PlusCircle className="size-4" />
-            Place New Order
-          </button>
-          <button
-            onClick={() => setCurrentView('all-orders')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'all-orders'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <FileText className="size-4" />
-            Previous Orders
-          </button>
-          <button
-            onClick={() => setCurrentView('remaining-orders')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'remaining-orders'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Clock className="size-4" />
-            Remaining Orders
-          </button>
-          <button
-            onClick={() => setCurrentView('admin-approval')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'admin-approval'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <UserCheck className="size-4" />
-            Admin Approval
-          </button>
-          <button
-            onClick={() => setCurrentView('user-management')}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 whitespace-nowrap ${
-              currentView === 'user-management'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            <Users className="size-4" />
-            User Management
-          </button>
-        </div>
-      </nav>
+          {/* Navigation Menu */}
+          <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+            <button
+              onClick={() => navigateTo('dashboard')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'dashboard'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <LayoutDashboard className="size-5" />
+              <span className="font-medium">Dashboard</span>
+            </button>
 
-      {/* Database Mode Banner */}
-      {!isSupabaseConfigured && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <HardDrive className="size-5 text-yellow-700 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-yellow-800">
-                <strong>Local Mode:</strong> Data is saved on this device only.{' '}
-                <a 
-                  href="/SUPABASE_SETUP.md" 
-                  target="_blank"
-                  className="underline hover:text-yellow-900"
-                >
-                  Set up cloud database
-                </a>
-                {' '}to sync across all devices (laptop, mobile, tablet).
-              </p>
-            </div>
+            <button
+              onClick={() => navigateTo('items')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'items'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <Package className="size-5" />
+              <span className="font-medium">Items</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('purchase-order')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'purchase-order'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <ShoppingCart className="size-5" />
+              <span className="font-medium">Purchase Order</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('sale-order')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'sale-order'
+                  ? 'bg-green-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <ShoppingBag className="size-5" />
+              <span className="font-medium">Sale Order</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('all-orders')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'all-orders'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <FileText className="size-5" />
+              <span className="font-medium">All Orders</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('pending-orders')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'pending-orders'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <Clock className="size-5" />
+              <span className="font-medium">Pending Orders</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('admin-approval')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'admin-approval'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <UserCheck className="size-5" />
+              <span className="font-medium">Approvals</span>
+            </button>
+
+            <button
+              onClick={() => navigateTo('user-management')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                currentView === 'user-management'
+                  ? 'bg-red-600 text-white shadow-lg'
+                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+            >
+              <Users className="size-5" />
+              <span className="font-medium">Users</span>
+            </button>
+          </nav>
+
+          {/* Logout Button */}
+          <div className="p-4 border-t border-gray-700">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+            >
+              <LogOut className="size-5" />
+              <span className="font-medium">Logout</span>
+            </button>
           </div>
         </div>
-      )}
+      </aside>
 
-      {isSupabaseConfigured && (
-        <div className="bg-green-50 border-b border-green-200 px-6 py-3">
-          <div className="flex items-center gap-3">
-            <Cloud className="size-5 text-green-700 flex-shrink-0" />
-            <p className="text-green-800">
-              <strong>Cloud Mode:</strong> Data synced across all devices ✓
-            </p>
-          </div>
-        </div>
+      {/* Sidebar Overlay for Mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
       )}
 
       {/* Main Content */}
-      <main className="p-6">
-        {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} token={token!} />}
-        {currentView === 'items' && <ItemsList token={token!} />}
-        {currentView === 'new-order' && (
-          <NewOrder 
-            token={token!}
-            adminName={admin?.name || ''}
-            adminEmail={admin?.email || ''}
-            onOrderCreated={() => setCurrentView('all-orders')}
-          />
-        )}
-        {currentView === 'all-orders' && <OrdersList filter="all" token={token!} />}
-        {currentView === 'remaining-orders' && <OrdersList filter="pending" token={token!} />}
-        {currentView === 'admin-approval' && <AdminApproval token={token!} />}
-        {currentView === 'user-management' && <UserManagement token={token!} currentUserEmail={admin?.email || ''} />}
-      </main>
+      <div className="flex-1 flex flex-col min-h-screen">
+        {/* Header */}
+        <header className="bg-gradient-to-r from-gray-900 to-gray-800 border-b-4 border-red-600 shadow-lg sticky top-0 z-30">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden text-white hover:text-red-400 transition-colors"
+              >
+                <Menu className="size-6" />
+              </button>
+              <div>
+                <h1 className="text-white font-bold text-xl">MFOI Admin System</h1>
+                <p className="text-gray-300 text-sm">Welcome, {admin?.name}</p>
+              </div>
+            </div>
+            {/* Database Status */}
+            <div className="hidden md:flex items-center gap-2">
+              {isSupabaseConfigured ? (
+                <div className="flex items-center gap-2 bg-green-600 px-3 py-1 rounded-full">
+                  <Cloud className="size-4 text-white" />
+                  <span className="text-white text-sm font-medium">Cloud Sync</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-yellow-600 px-3 py-1 rounded-full">
+                  <HardDrive className="size-4 text-white" />
+                  <span className="text-white text-sm font-medium">Local Mode</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className="flex-1 p-6 overflow-x-hidden">
+          {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} token={token!} />}
+          {currentView === 'items' && <ItemsList token={token!} />}
+          {currentView === 'purchase-order' && (
+            <CreateOrder
+              token={token!}
+              adminName={admin?.name || ''}
+              adminEmail={admin?.email || ''}
+              orderType="purchase"
+              onOrderCreated={() => setCurrentView('all-orders')}
+            />
+          )}
+          {currentView === 'sale-order' && (
+            <CreateOrder
+              token={token!}
+              adminName={admin?.name || ''}
+              adminEmail={admin?.email || ''}
+              orderType="sale"
+              onOrderCreated={() => setCurrentView('all-orders')}
+            />
+          )}
+          {currentView === 'all-orders' && (
+            <div>
+              <div className="mb-6 bg-white rounded-lg shadow-md p-4">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setOrderTypeView('purchase')}
+                    className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+                      orderTypeView === 'purchase'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <ShoppingCart className="size-5" />
+                    Purchase Orders
+                  </button>
+                  <button
+                    onClick={() => setOrderTypeView('sale')}
+                    className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+                      orderTypeView === 'sale'
+                        ? 'bg-green-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <ShoppingBag className="size-5" />
+                    Sale Orders
+                  </button>
+                </div>
+              </div>
+              <OrdersList filter="all" token={token!} orderType={orderTypeView} />
+            </div>
+          )}
+          {currentView === 'pending-orders' && (
+            <div>
+              <div className="mb-6 bg-white rounded-lg shadow-md p-4">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setOrderTypeView('purchase')}
+                    className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+                      orderTypeView === 'purchase'
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <ShoppingCart className="size-5" />
+                    Purchase Orders
+                  </button>
+                  <button
+                    onClick={() => setOrderTypeView('sale')}
+                    className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+                      orderTypeView === 'sale'
+                        ? 'bg-green-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <ShoppingBag className="size-5" />
+                    Sale Orders
+                  </button>
+                </div>
+              </div>
+              <OrdersList filter="pending" token={token!} orderType={orderTypeView} />
+            </div>
+          )}
+          {currentView === 'admin-approval' && <AdminApproval token={token!} />}
+          {currentView === 'user-management' && (
+            <UserManagement token={token!} currentUserEmail={admin?.email || ''} currentUserRole={admin?.role} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { getOrders, getItems, setAuthToken } from '../utils/storage';
 import { Package, FileText, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface DashboardProps {
-  onNavigate: (view: 'dashboard' | 'items' | 'new-order' | 'all-orders' | 'pending-orders') => void;
+  onNavigate: (view: string) => void;
   token: string;
 }
 
@@ -26,13 +26,13 @@ export function Dashboard({ onNavigate, token }: DashboardProps) {
       setAuthToken(token);
       const items = await getItems();
       const orders = await getOrders();
-      
+
       setStats({
         totalItems: items.length,
         totalOrders: orders.length,
-        pendingOrders: orders.filter(o => o.status === 'Open').length,
-        completedOrders: orders.filter(o => o.status === 'Completed').length,
-        lowStock: items.filter(i => i.stock < 100).length,
+        pendingOrders: orders.filter((o) => o.status === 'Open').length,
+        completedOrders: orders.filter((o) => o.status === 'Completed').length,
+        lowStock: items.filter((i) => i.sizes.some((s) => s.stock < 100)).length,
       });
     } catch (error) {
       console.error('Failed to load stats:', error);
@@ -40,6 +40,14 @@ export function Dashboard({ onNavigate, token }: DashboardProps) {
       setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
+        <p className="text-gray-500">Loading dashboard...</p>
+      </div>
+    );
+  }
 
   const cards = [
     {
@@ -83,7 +91,7 @@ export function Dashboard({ onNavigate, token }: DashboardProps) {
     <div>
       <div className="mb-6">
         <h2 className="text-gray-900 mb-2">Admin Dashboard</h2>
-        <p className="text-gray-600">Welcome to your Fastener Order Management System</p>
+        <p className="text-gray-600">Welcome to MFOI Fastener Order Management System</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -108,25 +116,25 @@ export function Dashboard({ onNavigate, token }: DashboardProps) {
       </div>
 
       <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="mb-4">Quick Actions</h3>
+        <h3 className="text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
-            onClick={() => onNavigate('new-order')}
+            onClick={() => onNavigate('purchase-order')}
             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
           >
-            ➕ Place New Order
+            🛒 New Purchase Order
+          </button>
+          <button
+            onClick={() => onNavigate('sale-order')}
+            className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            🛍️ New Sale Order
           </button>
           <button
             onClick={() => onNavigate('items')}
             className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
           >
             📦 Manage Items
-          </button>
-          <button
-            onClick={() => onNavigate('pending-orders')}
-            className="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition-colors"
-          >
-            ⏳ View Pending Orders
           </button>
         </div>
       </div>

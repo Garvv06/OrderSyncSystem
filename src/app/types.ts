@@ -1,4 +1,6 @@
-export type ItemCategory = 'Nuts' | 'Bolts' | 'Fasteners' | 'Screws' | 'Scaffolding Items' | 'Washers' | 'Hand Tools';
+// MFOI - Fastener Admin Order System Types
+
+export type ItemCategory = 'Nut' | 'Bolts' | 'Fasteners' | 'Screw' | 'Scapfolding Items' | 'Washer' | 'Hand Tools';
 
 export interface ItemSize {
   size: string;
@@ -9,7 +11,7 @@ export interface Item {
   id: string;
   name: string;
   category: ItemCategory;
-  sizes: ItemSize[]; // No rate here - rate will be in order
+  sizes: ItemSize[];
 }
 
 export interface OrderItem {
@@ -18,10 +20,10 @@ export interface OrderItem {
   itemName: string;
   size: string;
   quantity: number;
-  completedQuantity: number; // Track how much has been completed
+  completedQuantity: number;
   price: number;
   lineTotal: number;
-  billNumbers?: string[]; // Track bill numbers for partial completions
+  billNumbers?: string[];
 }
 
 export interface Order {
@@ -34,6 +36,7 @@ export interface Order {
   status: 'Open' | 'Partially Completed' | 'Completed';
   createdBy: string;
   createdByName: string;
+  orderType: 'purchase' | 'sale';
 }
 
 export interface PendingAdmin {

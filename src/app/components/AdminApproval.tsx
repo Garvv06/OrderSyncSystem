@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
-import { UserCheck, UserX, Clock } from 'lucide-react';
 import { PendingAdmin } from '../types';
+import { UserCheck, CheckCircle, XCircle } from 'lucide-react';
 
 interface AdminApprovalProps {
   token: string;
@@ -18,7 +18,9 @@ export function AdminApproval({ token }: AdminApprovalProps) {
   const loadPendingAdmins = async () => {
     try {
       const result = await api.getPendingAdmins(token);
-      setPendingAdmins(result.pendingAdmins || []);
+      if (result.success && result.admins) {
+        setPendingAdmins(result.admins);
+      }
     } catch (error) {
       console.error('Failed to load pending admins:', error);
     } finally {
@@ -26,70 +28,88 @@ export function AdminApproval({ token }: AdminApprovalProps) {
     }
   };
 
-  const handleApprove = async (requestId: string) => {
-    if (confirm('Approve this admin request?')) {
-      await api.approveAdmin(token, requestId);
-      await loadPendingAdmins();
+  const approveAdmin = async (adminId: string) => {
+    try {
+      const result = await api.approveAdmin(token, adminId);
+      if (result.success) {
+        alert('✅ Admin approved successfully!');
+        await loadPendingAdmins();
+      } else {
+        alert('❌ ' + result.message);
+      }
+    } catch (error) {
+      console.error('Failed to approve admin:', error);
+      alert('❌ Failed to approve admin');
     }
   };
 
-  const handleReject = async (requestId: string) => {
-    if (confirm('Reject this admin request?')) {
-      await api.rejectAdmin(token, requestId);
-      await loadPendingAdmins();
+  const rejectAdmin = async (adminId: string) => {
+    if (!confirm('Are you sure you want to reject this request?')) return;
+
+    try {
+      const result = await api.rejectAdmin(token, adminId);
+      if (result.success) {
+        alert('✅ Request rejected');
+        await loadPendingAdmins();
+      } else {
+        alert('❌ ' + result.message);
+      }
+    } catch (error) {
+      console.error('Failed to reject admin:', error);
+      alert('❌ Failed to reject admin');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-gray-900 mb-2">👥 Pending Admin Requests</h2>
-        <p className="text-gray-600">
-          Review and approve/reject admin access requests
-        </p>
+        <h2 className="text-gray-900 mb-2">
+          <UserCheck className="inline size-6 mr-2" />
+          Admin Approval Requests
+        </h2>
+        <p className="text-gray-600">Review and approve admin access requests</p>
       </div>
 
-      {loading ? (
+      {pendingAdmins.length === 0 ? (
         <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
-          <p className="text-gray-500">Loading requests...</p>
-        </div>
-      ) : pendingAdmins.length === 0 ? (
-        <div className="bg-white p-12 rounded-lg border border-gray-200 text-center">
-          <Clock className="size-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No pending admin requests</p>
+          <p className="text-gray-500">No pending approval requests</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pendingAdmins.map((request) => (
-            <div
-              key={request.id}
-              className="bg-white rounded-lg border border-gray-200 p-6"
-            >
-              <div className="mb-4">
-                <h3 className="text-gray-900 mb-1">{request.name}</h3>
-                <p className="text-gray-600">{request.email}</p>
-                <p className="text-gray-500 mt-2">
-                  Requested: {request.requestedAt 
-                    ? new Date(request.requestedAt).toLocaleString()
-                    : 'Just now'}
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleApprove(request.id)}
-                  className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <UserCheck className="size-4" />
-                  Approve
-                </button>
-                <button
-                  onClick={() => handleReject(request.id)}
-                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                >
-                  <UserX className="size-4" />
-                  Reject
-                </button>
+        <div className="space-y-4">
+          {pendingAdmins.map((admin) => (
+            <div key={admin.id} className="bg-white p-6 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-900 font-semibold">{admin.name}</p>
+                  <p className="text-gray-600">{admin.email}</p>
+                  <p className="text-gray-500 text-sm">
+                    Requested: {new Date(admin.requestedAt).toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => approveAdmin(admin.id)}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+                  >
+                    <CheckCircle className="size-4" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => rejectAdmin(admin.id)}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
+                  >
+                    <XCircle className="size-4" />
+                    Reject
+                  </button>
+                </div>
               </div>
             </div>
           ))}

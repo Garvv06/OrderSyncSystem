@@ -2,250 +2,374 @@ import { Item } from '../types';
 
 export const defaultItems: Omit<Item, 'id'>[] = [
   // Nuts
-  { name: 'SS Nut', category: 'Nuts', sizes: [
-    { size: 'M6', stock: 1000 },
-    { size: 'M8', stock: 900 },
-    { size: 'M10', stock: 800 },
-  ]},
-  { name: 'Hex Weld Nut', category: 'Nuts', sizes: [
-    { size: 'M6', stock: 700 },
-    { size: 'M8', stock: 800 },
+  { name: 'SS Nut', category: 'Nut', sizes: [
+    { size: 'M6', stock: 500 },
+    { size: 'M8', stock: 750 },
     { size: 'M10', stock: 600 },
   ]},
-  { name: 'Long Nut', category: 'Nuts', sizes: [
-    { size: 'M8', stock: 500 },
-    { size: 'M10', stock: 500 },
-    { size: 'M12', stock: 400 },
+  { name: 'Hex weld Nut', category: 'Nut', sizes: [
+    { size: 'M6', stock: 400 },
+    { size: 'M8', stock: 550 },
+    { size: 'M10', stock: 450 },
   ]},
-  { name: 'Nylock Nuts', category: 'Nuts', sizes: [
-    { size: 'M6', stock: 550 },
-    { size: 'M8', stock: 600 },
-    { size: 'M10', stock: 500 },
-  ]},
-  { name: 'Lock Nuts', category: 'Nuts', sizes: [
-    { size: 'M8', stock: 450 },
+  { name: 'Long Nut', category: 'Nut', sizes: [
+    { size: 'M8', stock: 300 },
     { size: 'M10', stock: 400 },
     { size: 'M12', stock: 350 },
   ]},
-  { name: 'Black Nut', category: 'Nuts', sizes: [
-    { size: 'M6', stock: 700 },
-    { size: 'M8', stock: 650 },
+  { name: 'Nylock Nuts', category: 'Nut', sizes: [
+    { size: 'M6', stock: 600 },
+    { size: 'M8', stock: 700 },
+    { size: 'M10', stock: 500 },
   ]},
-  { name: 'D.F. Nuts', category: 'Nuts', sizes: [
-    { size: 'M8', stock: 500 },
-    { size: 'M10', stock: 450 },
-  ]},
-  { name: 'Golden Nuts', category: 'Nuts', sizes: [
-    { size: 'M8', stock: 350 },
-    { size: 'M10', stock: 300 },
-  ]},
-  { name: 'Flange Nut', category: 'Nuts', sizes: [
-    { size: 'M10', stock: 400 },
+  { name: 'Lock Nuts', category: 'Nut', sizes: [
+    { size: 'M8', stock: 450 },
+    { size: 'M10', stock: 500 },
     { size: 'M12', stock: 400 },
-    { size: 'M16', stock: 300 },
   ]},
-  { name: 'Square Nut', category: 'Nuts', sizes: [
-    { size: 'M6', stock: 400 },
+  { name: 'Black Nut', category: 'Nut', sizes: [
+    { size: 'M6', stock: 550 },
+    { size: 'M8', stock: 650 },
+    { size: 'M10', stock: 600 },
+  ]},
+  { name: 'D.F. Nuts', category: 'Nut', sizes: [
     { size: 'M8', stock: 350 },
+    { size: 'M10', stock: 450 },
+    { size: 'M12', stock: 400 },
   ]},
-  { name: 'High Tensile Nut', category: 'Nuts', sizes: [
+  { name: 'Golden Nuts', category: 'Nut', sizes: [
+    { size: 'M8', stock: 300 },
+    { size: 'M10', stock: 350 },
+    { size: 'M12', stock: 300 },
+  ]},
+  { name: 'Flange Nut', category: 'Nut', sizes: [
+    { size: 'M10', stock: 400 },
+    { size: 'M12', stock: 450 },
+    { size: 'M16', stock: 350 },
+  ]},
+  { name: 'Square Nut', category: 'Nut', sizes: [
+    { size: 'M6', stock: 300 },
+    { size: 'M8', stock: 400 },
+    { size: 'M10', stock: 350 },
+  ]},
+  { name: 'High Tensile Nut', category: 'Nut', sizes: [
     { size: 'M10', stock: 250 },
-    { size: 'M12', stock: 200 },
-    { size: 'M16', stock: 150 },
+    { size: 'M12', stock: 300 },
+    { size: 'M16', stock: 200 },
   ]},
 
   // Bolts
-  { name: 'MS Rivet Cot Bolt', category: 'Bolts', sizes: [
-    { size: '6mm x 20mm', stock: 550 },
-    { size: '6mm x 30mm', stock: 500 },
-    { size: '8mm x 25mm', stock: 450 },
+  { name: 'Ms Rivet', category: 'Bolts', sizes: [
+    { size: '6mm', stock: 800 },
+    { size: '8mm', stock: 900 },
+    { size: '10mm', stock: 700 },
+  ]},
+  { name: 'Cot Bolt', category: 'Bolts', sizes: [
+    { size: '6mm x 20mm', stock: 500 },
+    { size: '8mm x 25mm', stock: 600 },
+    { size: '10mm x 30mm', stock: 550 },
   ]},
   { name: 'Foundation Bolts', category: 'Bolts', sizes: [
-    { size: '10mm x 100mm', stock: 250 },
-    { size: '12mm x 150mm', stock: 200 },
-    { size: '16mm x 200mm', stock: 150 },
+    { size: '10mm x 100mm', stock: 300 },
+    { size: '12mm x 150mm', stock: 350 },
+    { size: '16mm x 200mm', stock: 250 },
   ]},
   { name: 'Hex Bolt', category: 'Bolts', sizes: [
     { size: 'M8 x 20mm', stock: 700 },
-    { size: 'M10 x 30mm', stock: 600 },
-    { size: 'M12 x 40mm', stock: 500 },
+    { size: 'M10 x 30mm', stock: 800 },
+    { size: 'M12 x 40mm', stock: 600 },
   ]},
-  { name: 'High Tensile Bolt', category: 'Bolts', sizes: [
-    { size: 'M10 x 40mm', stock: 450 },
-    { size: 'M12 x 50mm', stock: 400 },
-    { size: 'M16 x 60mm', stock: 300 },
+  { name: 'High tensile Bolt', category: 'Bolts', sizes: [
+    { size: 'M10 x 40mm', stock: 400 },
+    { size: 'M12 x 50mm', stock: 450 },
+    { size: 'M16 x 60mm', stock: 350 },
   ]},
   { name: 'Flange Bolt', category: 'Bolts', sizes: [
-    { size: 'M8 x 25mm', stock: 400 },
-    { size: 'M10 x 35mm', stock: 350 },
+    { size: 'M8 x 25mm', stock: 500 },
+    { size: 'M10 x 35mm', stock: 550 },
+    { size: 'M12 x 45mm', stock: 450 },
   ]},
   { name: 'SS Bolt', category: 'Bolts', sizes: [
-    { size: 'M6 x 20mm', stock: 500 },
-    { size: 'M8 x 30mm', stock: 450 },
-    { size: 'M10 x 40mm', stock: 400 },
+    { size: 'M6 x 20mm', stock: 600 },
+    { size: 'M8 x 30mm', stock: 700 },
+    { size: 'M10 x 40mm', stock: 550 },
   ]},
   { name: 'J Bolt', category: 'Bolts', sizes: [
-    { size: '8mm x 100mm', stock: 350 },
+    { size: '8mm x 100mm', stock: 250 },
     { size: '10mm x 150mm', stock: 300 },
+    { size: '12mm x 200mm', stock: 200 },
   ]},
   { name: 'Pipe Bolt', category: 'Bolts', sizes: [
-    { size: '6mm x 30mm', stock: 450 },
-    { size: '8mm x 40mm', stock: 400 },
+    { size: '6mm x 30mm', stock: 400 },
+    { size: '8mm x 40mm', stock: 450 },
+    { size: '10mm x 50mm', stock: 400 },
   ]},
   { name: 'U Bolt', category: 'Bolts', sizes: [
     { size: '10mm x 100mm', stock: 300 },
-    { size: '12mm x 120mm', stock: 250 },
+    { size: '12mm x 120mm', stock: 350 },
+    { size: '16mm x 150mm', stock: 250 },
   ]},
 
   // Fasteners
   { name: 'SS Thread Rod', category: 'Fasteners', sizes: [
-    { size: '6mm x 1m', stock: 120 },
-    { size: '8mm x 1m', stock: 100 },
-    { size: '10mm x 1m', stock: 80 },
+    { size: '6mm x 1m', stock: 200 },
+    { size: '8mm x 1m', stock: 250 },
+    { size: '10mm x 1m', stock: 200 },
   ]},
   { name: 'Drop in Anchor', category: 'Fasteners', sizes: [
     { size: '8mm', stock: 350 },
-    { size: '10mm', stock: 300 },
-    { size: '12mm', stock: 250 },
-  ]},
-  { name: 'Double End Stud', category: 'Fasteners', sizes: [
-    { size: 'M8 x 50mm', stock: 400 },
-    { size: 'M10 x 60mm', stock: 350 },
-  ]},
-  { name: 'J Clamp', category: 'Fasteners', sizes: [
-    { size: '25mm', stock: 500 },
-    { size: '32mm', stock: 450 },
+    { size: '10mm', stock: 400 },
+    { size: '12mm', stock: 300 },
   ]},
   { name: 'Anchor Bolt', category: 'Fasteners', sizes: [
     { size: 'M10 x 100mm', stock: 300 },
+    { size: 'M12 x 120mm', stock: 350 },
+    { size: 'M16 x 150mm', stock: 250 },
+  ]},
+  { name: 'SS Anchor Bolt', category: 'Fasteners', sizes: [
+    { size: 'M8 x 80mm', stock: 250 },
+    { size: 'M10 x 100mm', stock: 300 },
     { size: 'M12 x 120mm', stock: 250 },
   ]},
-  { name: 'Eye Bolt', category: 'Fasteners', sizes: [
-    { size: 'M8', stock: 400 },
+  { name: 'Anchor Hook', category: 'Fasteners', sizes: [
+    { size: '8mm', stock: 300 },
+    { size: '10mm', stock: 350 },
+    { size: '12mm', stock: 300 },
+  ]},
+  { name: 'Wedge Anchor', category: 'Fasteners', sizes: [
+    { size: 'M8 x 75mm', stock: 400 },
+    { size: 'M10 x 100mm', stock: 450 },
+    { size: 'M12 x 120mm', stock: 350 },
+  ]},
+  { name: 'Sleeve Bolt', category: 'Fasteners', sizes: [
+    { size: 'M8', stock: 350 },
+    { size: 'M10', stock: 400 },
+    { size: 'M12', stock: 300 },
+  ]},
+  { name: 'Sleeve Nut', category: 'Fasteners', sizes: [
+    { size: 'M8', stock: 350 },
+    { size: 'M10', stock: 400 },
+    { size: 'M12', stock: 300 },
+  ]},
+  { name: 'Sleeve Hook', category: 'Fasteners', sizes: [
+    { size: '8mm', stock: 300 },
+    { size: '10mm', stock: 350 },
+    { size: '12mm', stock: 300 },
+  ]},
+  { name: 'D Hook', category: 'Fasteners', sizes: [
+    { size: '8mm', stock: 300 },
+    { size: '10mm', stock: 350 },
+    { size: '12mm', stock: 300 },
+  ]},
+  { name: 'Sprinkle Clamp', category: 'Fasteners', sizes: [
+    { size: '25mm', stock: 200 },
+    { size: '32mm', stock: 250 },
+    { size: '40mm', stock: 200 },
+  ]},
+  { name: 'Rubber Clamp', category: 'Fasteners', sizes: [
+    { size: '20mm', stock: 250 },
+    { size: '25mm', stock: 300 },
+    { size: '32mm', stock: 250 },
+  ]},
+  { name: 'Thread Rod', category: 'Fasteners', sizes: [
+    { size: 'M8 x 1m', stock: 200 },
+    { size: 'M10 x 1m', stock: 250 },
+    { size: 'M12 x 1m', stock: 200 },
+  ]},
+  { name: 'Slotted Channels', category: 'Fasteners', sizes: [
+    { size: '41x41', stock: 150 },
+    { size: '41x21', stock: 150 },
+  ]},
+  { name: 'Wedge Clump', category: 'Fasteners', sizes: [
+    { size: 'Standard', stock: 200 },
+  ]},
+  { name: 'Beam Clump', category: 'Fasteners', sizes: [
+    { size: 'Standard', stock: 200 },
+  ]},
+  { name: 'Coupling Nut', category: 'Fasteners', sizes: [
+    { size: 'M8', stock: 300 },
     { size: 'M10', stock: 350 },
+    { size: 'M12', stock: 300 },
+  ]},
+  { name: 'Pin Type Anchor', category: 'Fasteners', sizes: [
+    { size: '8mm', stock: 250 },
+    { size: '10mm', stock: 300 },
+    { size: '12mm', stock: 250 },
   ]},
 
   // Screws
-  { name: 'Self Drilling Screw', category: 'Screws', sizes: [
-    { size: '4.8 x 19mm', stock: 2000 },
-    { size: '4.8 x 25mm', stock: 1800 },
-    { size: '5.5 x 32mm', stock: 1500 },
+  { name: 'SS Sheetmetal Screws', category: 'Screw', sizes: [
+    { size: '4.8 x 19mm', stock: 800 },
+    { size: '4.8 x 25mm', stock: 900 },
+    { size: '5.5 x 32mm', stock: 700 },
   ]},
-  { name: 'Self Tapping Screw', category: 'Screws', sizes: [
-    { size: '3.5 x 16mm', stock: 2500 },
-    { size: '4.2 x 19mm', stock: 2200 },
+  { name: 'SS Carriage Bolts', category: 'Screw', sizes: [
+    { size: 'M6 x 25mm', stock: 500 },
+    { size: 'M8 x 30mm', stock: 600 },
+    { size: 'M10 x 40mm', stock: 500 },
   ]},
-  { name: 'Wood Screw', category: 'Screws', sizes: [
-    { size: '6 x 25mm', stock: 1800 },
-    { size: '8 x 38mm', stock: 1500 },
+  { name: 'SS Wood Screws', category: 'Screw', sizes: [
+    { size: '6 x 25mm', stock: 700 },
+    { size: '8 x 38mm', stock: 800 },
+    { size: '10 x 50mm', stock: 600 },
   ]},
-  { name: 'Drywall Screw', category: 'Screws', sizes: [
-    { size: '3.5 x 25mm', stock: 2000 },
-    { size: '3.5 x 35mm', stock: 1800 },
+  { name: 'Sds Screw :Csk,Thrusst,Hex', category: 'Screw', sizes: [
+    { size: 'CSK 4.8x19', stock: 600 },
+    { size: 'Thrust 4.8x19', stock: 600 },
+    { size: 'Hex 4.8x19', stock: 600 },
   ]},
-  { name: 'Machine Screw', category: 'Screws', sizes: [
-    { size: 'M4 x 12mm', stock: 1500 },
-    { size: 'M5 x 16mm', stock: 1300 },
+  { name: 'Drywall Screw', category: 'Screw', sizes: [
+    { size: '3.5 x 25mm', stock: 900 },
+    { size: '3.5 x 35mm', stock: 1000 },
+    { size: '3.5 x 45mm', stock: 800 },
   ]},
-  { name: 'Pan Head Screw', category: 'Screws', sizes: [
-    { size: 'M4 x 10mm', stock: 1600 },
-    { size: 'M5 x 12mm', stock: 1400 },
+  { name: 'Machine Screws', category: 'Screw', sizes: [
+    { size: 'M4 x 12mm', stock: 700 },
+    { size: 'M5 x 16mm', stock: 800 },
+    { size: 'M6 x 20mm', stock: 700 },
   ]},
-  { name: 'Countersunk Screw', category: 'Screws', sizes: [
-    { size: 'M4 x 16mm', stock: 1400 },
-    { size: 'M5 x 20mm', stock: 1200 },
+  { name: 'Coach Screw', category: 'Screw', sizes: [
+    { size: '8 x 50mm', stock: 400 },
+    { size: '10 x 60mm', stock: 450 },
+    { size: '12 x 80mm', stock: 350 },
+  ]},
+  { name: 'Carriage Bolt', category: 'Screw', sizes: [
+    { size: 'M8 x 30mm', stock: 500 },
+    { size: 'M10 x 40mm', stock: 550 },
+    { size: 'M12 x 50mm', stock: 450 },
+  ]},
+  { name: 'Roofing Bolt', category: 'Screw', sizes: [
+    { size: '6mm', stock: 600 },
+    { size: '8mm', stock: 700 },
+  ]},
+  { name: 'Sheetmetal Screw Tempered', category: 'Screw', sizes: [
+    { size: '4.8 x 19mm', stock: 750 },
+    { size: '4.8 x 25mm', stock: 850 },
+    { size: '5.5 x 32mm', stock: 650 },
+  ]},
+  { name: 'SS Machine Scew', category: 'Screw', sizes: [
+    { size: 'M4 x 12mm', stock: 650 },
+    { size: 'M5 x 16mm', stock: 750 },
+    { size: 'M6 x 20mm', stock: 650 },
+  ]},
+  { name: 'B Hook', category: 'Screw', sizes: [
+    { size: 'Small', stock: 400 },
+    { size: 'Medium', stock: 500 },
+    { size: 'Large', stock: 350 },
+  ]},
+  { name: 'M Hook', category: 'Screw', sizes: [
+    { size: 'Small', stock: 400 },
+    { size: 'Medium', stock: 500 },
+    { size: 'Large', stock: 350 },
+  ]},
+  { name: 'Cup Hook', category: 'Screw', sizes: [
+    { size: 'Small', stock: 450 },
+    { size: 'Medium', stock: 550 },
+    { size: 'Large', stock: 400 },
+  ]},
+  { name: 'Door Safety', category: 'Screw', sizes: [
+    { size: 'Standard', stock: 300 },
   ]},
 
   // Scaffolding Items
-  { name: 'Scaffolding Coupler', category: 'Scaffolding Items', sizes: [
-    { size: '48mm', stock: 500 },
-    { size: '60mm', stock: 400 },
+  { name: 'Scaffolding Pin', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 500 },
   ]},
-  { name: 'Scaffolding Clamp', category: 'Scaffolding Items', sizes: [
-    { size: 'Standard', stock: 600 },
-    { size: 'Heavy Duty', stock: 450 },
+  { name: 'Forged Coupler(Swl/Fixed', category: 'Scapfolding Items', sizes: [
+    { size: 'SWL', stock: 300 },
+    { size: 'Fixed', stock: 300 },
   ]},
-  { name: 'Base Jack', category: 'Scaffolding Items', sizes: [
-    { size: '600mm', stock: 200 },
-    { size: '800mm', stock: 150 },
+  { name: 'Golden Coupler(Swl/Fixed', category: 'Scapfolding Items', sizes: [
+    { size: 'SWL', stock: 250 },
+    { size: 'Fixed', stock: 250 },
   ]},
-  { name: 'U Head Jack', category: 'Scaffolding Items', sizes: [
-    { size: 'Standard', stock: 150 },
+  { name: 'T-Bolt', category: 'Scapfolding Items', sizes: [
+    { size: 'M16', stock: 350 },
+    { size: 'M20', stock: 300 },
   ]},
-  { name: 'Board Bracket', category: 'Scaffolding Items', sizes: [
-    { size: '300mm', stock: 250 },
-    { size: '450mm', stock: 200 },
+  { name: 'Tie Rod', category: 'Scapfolding Items', sizes: [
+    { size: '12mm', stock: 200 },
+    { size: '16mm', stock: 250 },
   ]},
-  { name: 'Tube', category: 'Scaffolding Items', sizes: [
-    { size: '1.8m', stock: 300 },
-    { size: '2.4m', stock: 250 },
-    { size: '3.0m', stock: 200 },
+  { name: 'Prop Sleeve with Nut', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 300 },
   ]},
-  { name: 'Ledger Blade', category: 'Scaffolding Items', sizes: [
-    { size: '1.2m', stock: 200 },
-    { size: '1.5m', stock: 180 },
+  { name: 'Anchor Nut', category: 'Scapfolding Items', sizes: [
+    { size: 'M12', stock: 400 },
+    { size: 'M16', stock: 350 },
+  ]},
+  { name: 'Wing Nut', category: 'Scapfolding Items', sizes: [
+    { size: 'M8', stock: 500 },
+    { size: 'M10', stock: 550 },
+    { size: 'M12', stock: 450 },
+  ]},
+  { name: 'Beam Clump', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 200 },
+  ]},
+  { name: 'I Bolt', category: 'Scapfolding Items', sizes: [
+    { size: 'M12', stock: 300 },
+    { size: 'M16', stock: 250 },
+  ]},
+  { name: 'Water Stopper', category: 'Scapfolding Items', sizes: [
+    { size: '20mm', stock: 250 },
+    { size: '25mm', stock: 300 },
+  ]},
+  { name: 'Ledger Plate', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 200 },
+  ]},
+  { name: 'Top Plate', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 200 },
+  ]},
+  { name: 'Bottom Cap', category: 'Scapfolding Items', sizes: [
+    { size: 'Standard', stock: 250 },
   ]},
 
   // Washers
-  { name: 'Plain Washer', category: 'Washers', sizes: [
-    { size: 'M6', stock: 5000 },
-    { size: 'M8', stock: 4500 },
-    { size: 'M10', stock: 4000 },
-    { size: 'M12', stock: 3500 },
+  { name: 'Spring Washer', category: 'Washer', sizes: [
+    { size: 'M6', stock: 1000 },
+    { size: 'M8', stock: 1200 },
+    { size: 'M10', stock: 1000 },
+    { size: 'M12', stock: 900 },
   ]},
-  { name: 'Spring Washer', category: 'Washers', sizes: [
-    { size: 'M6', stock: 4000 },
-    { size: 'M8', stock: 3800 },
-    { size: 'M10', stock: 3500 },
+  { name: 'EN 8 Washer', category: 'Washer', sizes: [
+    { size: 'M8', stock: 800 },
+    { size: 'M10', stock: 900 },
+    { size: 'M12', stock: 700 },
   ]},
-  { name: 'Flat Washer', category: 'Washers', sizes: [
-    { size: 'M8', stock: 4200 },
-    { size: 'M10', stock: 4000 },
-  ]},
-  { name: 'Tooth Lock Washer', category: 'Washers', sizes: [
-    { size: 'M6', stock: 3500 },
-    { size: 'M8', stock: 3200 },
-  ]},
-  { name: 'Fender Washer', category: 'Washers', sizes: [
-    { size: '1/4"', stock: 2500 },
-    { size: '3/8"', stock: 2200 },
+  { name: 'Golden Washer', category: 'Washer', sizes: [
+    { size: 'M8', stock: 600 },
+    { size: 'M10', stock: 700 },
+    { size: 'M12', stock: 600 },
   ]},
 
   // Hand Tools
-  { name: 'Pipe Wrench', category: 'Hand Tools', sizes: [
-    { size: '10"', stock: 50 },
-    { size: '14"', stock: 40 },
-    { size: '18"', stock: 30 },
-  ]},
-  { name: 'Spanner Set', category: 'Hand Tools', sizes: [
-    { size: '6pcs', stock: 60 },
-    { size: '12pcs', stock: 50 },
-  ]},
-  { name: 'Hammer', category: 'Hand Tools', sizes: [
-    { size: '500g', stock: 80 },
+  { name: 'Claw Hammer', category: 'Hand Tools', sizes: [
+    { size: '500g', stock: 50 },
     { size: '1kg', stock: 60 },
   ]},
-  { name: 'Screwdriver Set', category: 'Hand Tools', sizes: [
-    { size: '6pcs', stock: 70 },
-    { size: '12pcs', stock: 50 },
+  { name: 'Sledge Hammer', category: 'Hand Tools', sizes: [
+    { size: '2kg', stock: 40 },
+    { size: '3kg', stock: 45 },
+    { size: '5kg', stock: 35 },
   ]},
-  { name: 'Pliers', category: 'Hand Tools', sizes: [
-    { size: '6"', stock: 100 },
-    { size: '8"', stock: 80 },
+  { name: 'Hexaframe', category: 'Hand Tools', sizes: [
+    { size: 'Standard', stock: 80 },
   ]},
-  { name: 'Allen Key Set', category: 'Hand Tools', sizes: [
-    { size: '9pcs', stock: 60 },
+  { name: 'Spanner', category: 'Hand Tools', sizes: [
+    { size: '6-8mm', stock: 100 },
+    { size: '10-12mm', stock: 120 },
+    { size: '14-17mm', stock: 90 },
   ]},
-  { name: 'Measuring Tape', category: 'Hand Tools', sizes: [
-    { size: '3m', stock: 100 },
-    { size: '5m', stock: 80 },
+  { name: 'Plumbob', category: 'Hand Tools', sizes: [
+    { size: 'Standard', stock: 70 },
   ]},
-  { name: 'Spirit Level', category: 'Hand Tools', sizes: [
-    { size: '2ft', stock: 50 },
-    { size: '3ft', stock: 40 },
+  { name: 'G Clamp', category: 'Hand Tools', sizes: [
+    { size: '2 inch', stock: 60 },
+    { size: '4 inch', stock: 70 },
+    { size: '6 inch', stock: 50 },
   ]},
-  { name: 'Wire Cutter', category: 'Hand Tools', sizes: [
-    { size: '6"', stock: 80 },
-    { size: '8"', stock: 60 },
+  { name: 'Plier', category: 'Hand Tools', sizes: [
+    { size: '6 inch', stock: 80 },
+    { size: '8 inch', stock: 90 },
   ]},
 ];

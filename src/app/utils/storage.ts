@@ -16,17 +16,19 @@ export function setCurrentUser(user: Admin) {
 // ==================== ADMIN MANAGEMENT ====================
 
 export async function getAdmins(): Promise<Admin[]> {
-  // Try Supabase first, then fallback to localStorage
+  // Try Supabase first
   if (isSupabaseConfigured && supabase) {
     const supabaseAdmins = await getAdminsFromSupabase();
     if (supabaseAdmins.length > 0) {
-      // Cache in localStorage for offline access
-      localStorage.setItem('admins', JSON.stringify(supabaseAdmins));
+      console.log('📊 Loaded admins from Supabase:', supabaseAdmins.length, 'admins');
+      console.log('Admins:', supabaseAdmins.map(a => ({ email: a.email, approved: a.approved })));
       return supabaseAdmins;
     }
   }
   // Fallback to localStorage
-  return getAdminsFromLocalStorage();
+  const localAdmins = getAdminsFromLocalStorage();
+  console.log('📊 Loaded admins from localStorage:', localAdmins.length, 'admins');
+  return localAdmins;
 }
 
 async function getAdminsFromSupabase(): Promise<Admin[]> {
@@ -94,10 +96,15 @@ async function saveAdminToSupabase(admin: Admin): Promise<void> {
         approved: admin.approved,
       });
 
-    if (error) throw error;
-  } catch (error) {
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw new Error(`Supabase error: ${error.message}`);
+    }
+    
+    console.log('✅ Admin saved to Supabase successfully');
+  } catch (error: any) {
     console.error('Failed to save admin to Supabase:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to save to database');
   }
 }
 
@@ -266,8 +273,13 @@ function getItemsFromLocalStorage(): Item[] {
   const stored = localStorage.getItem(key);
   
   if (!stored) {
-    localStorage.setItem(key, JSON.stringify(defaultItems));
-    return defaultItems;
+    // Generate unique IDs for each default item
+    const itemsWithIds: Item[] = defaultItems.map((item, index) => ({
+      ...item,
+      id: `item_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+    }));
+    localStorage.setItem(key, JSON.stringify(itemsWithIds));
+    return itemsWithIds;
   }
   
   return JSON.parse(stored);
@@ -376,14 +388,14 @@ function updateItemInLocalStorage(id: string, updates: Partial<Omit<Item, 'id'>>
   }
 }
 
-export async function updateItemStock(itemId: string, size: string, newStock: number): Promise<void> {
+export async function updateItemStock(itemId: string, stockUpdates: { [size: string]: number }): Promise<void> {
   if (isSupabaseConfigured && supabase) {
-    return updateItemStockInSupabase(itemId, size, newStock);
+    return updateItemStockInSupabase(itemId, stockUpdates);
   }
-  return updateItemStockInLocalStorage(itemId, size, newStock);
+  return updateItemStockInLocalStorage(itemId, stockUpdates);
 }
 
-async function updateItemStockInSupabase(itemId: string, size: string, newStock: number): Promise<void> {
+async function updateItemStockInSupabase(itemId: string, stockUpdates: { [size: string]: number }): Promise<void> {
   try {
     const { data, error: fetchError } = await supabase!
       .from('items')
@@ -393,9 +405,12 @@ async function updateItemStockInSupabase(itemId: string, size: string, newStock:
 
     if (fetchError) throw fetchError;
 
-    const updatedSizes = data.sizes.map((s: any) => 
-      s.size === size ? { ...s, stock: newStock } : s
-    );
+    const updatedSizes = data.sizes.map((s: any) => {
+      if (stockUpdates.hasOwnProperty(s.size)) {
+        return { ...s, stock: stockUpdates[s.size] };
+      }
+      return s;
+    });
 
     const { error: updateError } = await supabase!
       .from('items')
@@ -409,15 +424,16 @@ async function updateItemStockInSupabase(itemId: string, size: string, newStock:
   }
 }
 
-function updateItemStockInLocalStorage(itemId: string, size: string, newStock: number): void {
+function updateItemStockInLocalStorage(itemId: string, stockUpdates: { [size: string]: number }): void {
   const items = getItemsFromLocalStorage();
   const item = items.find(i => i.id === itemId);
   if (item) {
-    const sizeData = item.sizes.find(s => s.size === size);
-    if (sizeData) {
-      sizeData.stock = newStock;
-      saveItemsToLocalStorage(items);
-    }
+    item.sizes.forEach(sizeData => {
+      if (stockUpdates.hasOwnProperty(sizeData.size)) {
+        sizeData.stock = stockUpdates[sizeData.size];
+      }
+    });
+    saveItemsToLocalStorage(items);
   }
 }
 
@@ -476,6 +492,7 @@ async function getOrdersFromSupabase(): Promise<Order[]> {
       status: order.status as any,
       createdBy: order.created_by,
       createdByName: order.created_by_name,
+      orderType: order.order_type || 'purchase',
     }));
   } catch (error) {
     console.error('Failed to get orders from Supabase:', error);
@@ -565,6 +582,7 @@ async function addOrderToSupabase(order: Omit<Order, 'id' | 'orderNo'>): Promise
         status: order.status,
         created_by: order.createdBy,
         created_by_name: order.createdByName,
+        order_type: order.orderType,
       });
 
     if (error) throw error;
@@ -594,6 +612,11 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
     return updateOrderInSupabase(id, updates);
   }
   return updateOrderInLocalStorage(id, updates);
+}
+
+// Helper function to update just the order status
+export async function updateOrderStatus(id: string, status: 'Open' | 'Partially Completed' | 'Completed'): Promise<void> {
+  return updateOrder(id, { status });
 }
 
 async function updateOrderInSupabase(id: string, updates: Partial<Order>): Promise<void> {

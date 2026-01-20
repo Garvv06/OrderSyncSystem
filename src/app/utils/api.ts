@@ -64,7 +64,7 @@ export const api = {
       
       // Check if email already exists
       if (admins.some((a) => a.email === email)) {
-        return { success: false, error: 'Email already exists' };
+        return { success: false, message: 'Email already exists' };
       }
 
       // Create new admin (not approved by default)
@@ -78,11 +78,16 @@ export const api = {
 
       await saveAdmin(newAdmin);
 
-      return { success: true, pending: true, message: 'Account created. Pending approval from existing admin.' };
+      return { success: true, message: '✅ Registration successful! Your request is pending approval from an existing admin.' };
     } catch (error) {
       console.error('Signup error:', error);
-      return { success: false, error: 'Signup failed' };
+      return { success: false, message: 'Registration failed. Please try again.' };
     }
+  },
+
+  // Alias for signup (for backward compatibility)
+  async register(email: string, password: string, name: string) {
+    return this.signup(email, password, name);
   },
 
   async verify(token: string) {
@@ -142,10 +147,10 @@ export const api = {
           status: 'pending' as const,
         }));
       
-      return { pendingAdmins };
+      return { success: true, admins: pendingAdmins };
     } catch (error) {
       console.error('Get pending admins error:', error);
-      return { pendingAdmins: [] };
+      return { success: false, admins: [] };
     }
   },
 
@@ -176,6 +181,89 @@ export const api = {
     } catch (error) {
       console.error('Reject admin error:', error);
       return { success: false };
+    }
+  },
+
+  async getAdmins(token: string) {
+    try {
+      const session = getActiveSessions().get(token);
+      if (!session) {
+        return { success: false, message: 'Invalid token' };
+      }
+
+      const admins = await getAdmins();
+      const sanitizedAdmins = admins
+        .filter(a => a.approved) // Only show approved admins
+        .map(a => ({
+          email: a.email,
+          name: a.name,
+          role: a.role,
+          password: a.password, // Include password for editing
+        }));
+
+      return { success: true, admins: sanitizedAdmins };
+    } catch (error) {
+      console.error('Get admins error:', error);
+      return { success: false, message: 'Failed to get admins' };
+    }
+  },
+
+  async deleteAdmin(token: string, email: string) {
+    try {
+      const session = getActiveSessions().get(token);
+      if (!session) {
+        throw new Error('Invalid token');
+      }
+
+      await deleteAdmin(email);
+      return { success: true };
+    } catch (error) {
+      console.error('Delete admin error:', error);
+      return { success: false, message: 'Failed to delete admin' };
+    }
+  },
+
+  async updateAdmin(token: string, oldEmail: string, newEmail: string, newPassword: string) {
+    try {
+      const session = getActiveSessions().get(token);
+      if (!session) {
+        return { success: false, message: 'Invalid token' };
+      }
+
+      const updates: any = { email: newEmail };
+      if (newPassword) {
+        updates.password = newPassword;
+      }
+
+      await updateAdmin(oldEmail, updates);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Update admin error:', error);
+      return { success: false, message: 'Failed to update admin' };
+    }
+  },
+
+  async updateAdminFull(token: string, oldEmail: string, name: string, newEmail: string, password: string, role: 'admin' | 'superadmin') {
+    try {
+      const session = getActiveSessions().get(token);
+      if (!session) {
+        return { success: false, message: 'Invalid token' };
+      }
+
+      const updates = {
+        name,
+        email: newEmail,
+        password,
+        role,
+      };
+
+      await updateAdmin(oldEmail, updates);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Update admin full error:', error);
+      return { success: false, message: 'Failed to update admin' };
     }
   },
 

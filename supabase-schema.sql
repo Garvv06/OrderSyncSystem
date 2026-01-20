@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   status TEXT NOT NULL DEFAULT 'Open' CHECK (status IN ('Open', 'Partially Completed', 'Completed')),
   created_by TEXT NOT NULL,
   created_by_name TEXT NOT NULL,
+  order_type TEXT NOT NULL DEFAULT 'purchase' CHECK (order_type IN ('purchase', 'sale')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -43,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_party_name ON public.orders(party_name);
 CREATE INDEX IF NOT EXISTS idx_orders_created_by ON public.orders(created_by);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_order_type ON public.orders(order_type);
 
 -- Insert default super admin (change password after first login!)
 INSERT INTO public.admins (email, password, name, role, approved)
