@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import logo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 import { Admin } from './types';
-import { api } from './utils/api';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ItemsList } from './components/ItemsList';
@@ -10,61 +9,86 @@ import { CreateOrder } from './components/CreateOrder';
 import { AdminApproval } from './components/AdminApproval';
 import { UserManagement } from './components/UserManagement';
 import { LogOut, Package, ShoppingCart, FileText, UserCheck, Users, LayoutDashboard, Clock, ShoppingBag, Cloud, HardDrive, Menu, X } from 'lucide-react';
-import { isSupabaseConfigured } from './utils/supabase';
+import { isSupabaseConfigured, supabase } from './utils/supabase';
+import { getAdmins } from './utils/storage';
 
 type View = 'dashboard' | 'items' | 'all-orders' | 'pending-orders' | 'purchase-order' | 'sale-order' | 'admin-approval' | 'user-management';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
   const [orderTypeView, setOrderTypeView] = useState<'purchase' | 'sale'>('purchase');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('admin_token');
-    if (storedToken) {
-      verifyToken(storedToken);
-    } else {
-      setLoading(false);
-    }
+    checkAuth();
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase?.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await loadAdminData(session.user.email!);
+      } else if (event === 'SIGNED_OUT') {
+        setAdmin(null);
+        setIsAuthenticated(false);
+      }
+    }) || { data: { subscription: null } };
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
-  const verifyToken = async (storedToken: string) => {
+  const checkAuth = async () => {
     try {
-      const result = await api.verify(storedToken);
-      if (result.valid && result.admin) {
-        setToken(storedToken);
-        setAdmin(result.admin);
-        setIsAuthenticated(true);
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        await loadAdminData(session.user.email!);
       } else {
-        localStorage.removeItem('admin_token');
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Token verification failed:', error);
-      localStorage.removeItem('admin_token');
+      console.error('Auth check failed:', error);
+      setLoading(false);
+    }
+  };
+
+  const loadAdminData = async (email: string) => {
+    try {
+      const admins = await getAdmins();
+      const admin = admins.find((a) => a.email === email);
+
+      if (admin && admin.approved) {
+        setAdmin(admin);
+        setIsAuthenticated(true);
+      } else {
+        await supabase?.auth.signOut();
+      }
+    } catch (error) {
+      console.error('Failed to load admin data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoginSuccess = (newToken: string, adminData: Admin) => {
-    setToken(newToken);
+  const handleLoginSuccess = (adminData: Admin) => {
     setAdmin(adminData);
     setIsAuthenticated(true);
-    localStorage.setItem('admin_token', newToken);
   };
 
   const handleLogout = async () => {
-    if (token) {
-      await api.logout(token);
+    if (supabase) {
+      await supabase.auth.signOut();
     }
-    setToken(null);
     setAdmin(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('admin_token');
   };
 
   const navigateTo = (view: View) => {
@@ -267,11 +291,10 @@ export default function App() {
 
         {/* Page Content */}
         <main className="flex-1 p-6 overflow-x-hidden">
-          {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} token={token!} />}
-          {currentView === 'items' && <ItemsList token={token!} />}
+          {currentView === 'dashboard' && <Dashboard onNavigate={setCurrentView} />}
+          {currentView === 'items' && <ItemsList />}
           {currentView === 'purchase-order' && (
             <CreateOrder
-              token={token!}
               adminName={admin?.name || ''}
               adminEmail={admin?.email || ''}
               orderType="purchase"
@@ -280,7 +303,6 @@ export default function App() {
           )}
           {currentView === 'sale-order' && (
             <CreateOrder
-              token={token!}
               adminName={admin?.name || ''}
               adminEmail={admin?.email || ''}
               orderType="sale"
@@ -315,7 +337,7 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <OrdersList filter="all" token={token!} orderType={orderTypeView} />
+              <OrdersList filter="all" orderType={orderTypeView} />
             </div>
           )}
           {currentView === 'pending-orders' && (
@@ -346,12 +368,12 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <OrdersList filter="pending" token={token!} orderType={orderTypeView} />
+              <OrdersList filter="pending" orderType={orderTypeView} />
             </div>
           )}
-          {currentView === 'admin-approval' && <AdminApproval token={token!} />}
+          {currentView === 'admin-approval' && <AdminApproval />}
           {currentView === 'user-management' && (
-            <UserManagement token={token!} currentUserEmail={admin?.email || ''} currentUserRole={admin?.role} />
+            <UserManagement currentUserEmail={admin?.email || ''} currentUserRole={admin?.role} />
           )}
         </main>
       </div>

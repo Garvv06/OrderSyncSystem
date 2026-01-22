@@ -18,8 +18,8 @@ export interface Database {
       admins: {
         Row: {
           id: string;
+          user_id: string;
           email: string;
-          password: string;
           name: string;
           role: 'superadmin' | 'admin';
           approved: boolean;
@@ -27,8 +27,8 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          user_id: string;
           email: string;
-          password: string;
           name: string;
           role?: 'superadmin' | 'admin';
           approved?: boolean;
@@ -36,8 +36,8 @@ export interface Database {
         };
         Update: {
           id?: string;
+          user_id?: string;
           email?: string;
-          password?: string;
           name?: string;
           role?: 'superadmin' | 'admin';
           approved?: boolean;
