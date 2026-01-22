@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { getOrders, updateOrder, setAuthToken, updateItemStock, getItems, deleteOrder, insertOrder } from '../utils/storage';
+import { getOrders, updateOrder, updateItemStock, getItems, deleteOrder, insertOrder } from '../utils/storage';
 import { Order, Item, OrderItem } from '../types';
 import { FileText, CheckCircle, Clock, Package, X, Download, Upload, Trash2 } from 'lucide-react';
 
 interface OrdersListProps {
   filter: 'all' | 'pending';
-  token: string;
   orderType: 'purchase' | 'sale';
 }
 
-export function OrdersList({ filter, token, orderType }: OrdersListProps) {
+export function OrdersList({ filter, orderType }: OrdersListProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,11 +23,10 @@ export function OrdersList({ filter, token, orderType }: OrdersListProps) {
 
   useEffect(() => {
     loadData();
-  }, [token, orderType]);
+  }, [orderType]);
 
   const loadData = async () => {
     try {
-      setAuthToken(token);
       const [ordersData, itemsData] = await Promise.all([getOrders(), getItems()]);
       setOrders(ordersData);
       setItems(itemsData);

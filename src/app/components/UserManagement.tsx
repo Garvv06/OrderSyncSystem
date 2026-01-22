@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { getAdmins, updateAdmin, deleteAdmin } from '../utils/storage';
 import { Admin } from '../types';
 import { Users, Trash2, Edit2, Save, X } from 'lucide-react';
 
 interface UserManagementProps {
-  token: string;
   currentUserEmail: string;
   currentUserRole?: 'superadmin' | 'admin';
 }
 
-export function UserManagement({ token, currentUserEmail, currentUserRole }: UserManagementProps) {
+export function UserManagement({ currentUserEmail, currentUserRole }: UserManagementProps) {
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingEmail, setEditingEmail] = useState<string | null>(null);
@@ -27,14 +26,13 @@ export function UserManagement({ token, currentUserEmail, currentUserRole }: Use
 
   useEffect(() => {
     loadAdmins();
-  }, [token]);
+  }, []);
 
   const loadAdmins = async () => {
     try {
-      const result = await api.getAdmins(token);
-      if (result.success && result.admins) {
-        setAdmins(result.admins);
-      }
+      const allAdmins = await getAdmins();
+      // Only show approved admins
+      setAdmins(allAdmins.filter(a => a.approved));
     } catch (error) {
       console.error('Failed to load admins:', error);
     } finally {
@@ -42,17 +40,13 @@ export function UserManagement({ token, currentUserEmail, currentUserRole }: Use
     }
   };
 
-  const deleteAdmin = async (email: string) => {
+  const handleDeleteAdmin = async (email: string) => {
     if (!confirm(`Delete admin ${email}? This action cannot be undone.`)) return;
 
     try {
-      const result = await api.deleteAdmin(token, email);
-      if (result.success) {
-        alert('✅ Admin deleted successfully');
-        await loadAdmins();
-      } else {
-        alert('❌ ' + result.message);
-      }
+      await deleteAdmin(email);
+      alert('✅ Admin deleted successfully');
+      await loadAdmins();
     } catch (error) {
       console.error('Failed to delete admin:', error);
       alert('❌ Failed to delete admin');
@@ -106,22 +100,16 @@ export function UserManagement({ token, currentUserEmail, currentUserRole }: Use
       // Determine final password: use new password if provided, else keep current
       const finalPassword = editForm.newPassword || editForm.currentPassword;
       
-      const result = await api.updateAdminFull(
-        token,
-        editingEmail!,
-        editForm.name,
-        editForm.newEmail,
-        finalPassword,
-        editForm.role
-      );
+      await updateAdmin(editingEmail!, {
+        name: editForm.name,
+        email: editForm.newEmail,
+        password: finalPassword,
+        role: editForm.role,
+      });
       
-      if (result.success) {
-        alert('✅ Admin updated successfully');
-        await loadAdmins();
-        cancelEditing();
-      } else {
-        alert('❌ ' + result.message);
-      }
+      alert('✅ Admin updated successfully');
+      await loadAdmins();
+      cancelEditing();
     } catch (error) {
       console.error('Failed to update admin:', error);
       alert('❌ Failed to update admin');
@@ -185,7 +173,7 @@ export function UserManagement({ token, currentUserEmail, currentUserRole }: Use
                     )}
                     {admin.email !== currentUserEmail && (
                       <button
-                        onClick={() => deleteAdmin(admin.email)}
+                        onClick={() => handleDeleteAdmin(admin.email)}
                         className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1"
                       >
                         <Trash2 className="size-4" />

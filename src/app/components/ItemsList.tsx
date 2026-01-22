@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getItems, updateItem, addItem, setAuthToken } from '../utils/storage';
+import { getItems, updateItem, addItem } from '../utils/storage';
 import { Item, ItemCategory } from '../types';
 import { Package, Edit2, Save, X, Plus, Trash2 } from 'lucide-react';
 
-interface ItemsListProps {
-  token: string;
-}
+interface ItemsListProps {}
 
-export function ItemsList({ token }: ItemsListProps) {
+export function ItemsList({}: ItemsListProps) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -32,11 +30,10 @@ export function ItemsList({ token }: ItemsListProps) {
 
   useEffect(() => {
     loadItems();
-  }, [token]);
+  }, []);
 
   const loadItems = async () => {
     try {
-      setAuthToken(token);
       const itemsData = await getItems();
       setItems(itemsData);
       

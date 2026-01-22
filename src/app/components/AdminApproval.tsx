@@ -1,26 +1,22 @@
 import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
-import { PendingAdmin } from '../types';
+import { getAdmins, updateAdmin, deleteAdmin } from '../utils/storage';
+import { Admin } from '../types';
 import { UserCheck, CheckCircle, XCircle } from 'lucide-react';
 
-interface AdminApprovalProps {
-  token: string;
-}
+interface AdminApprovalProps {}
 
-export function AdminApproval({ token }: AdminApprovalProps) {
-  const [pendingAdmins, setPendingAdmins] = useState<PendingAdmin[]>([]);
+export function AdminApproval({}: AdminApprovalProps) {
+  const [pendingAdmins, setPendingAdmins] = useState<Admin[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadPendingAdmins();
-  }, [token]);
+  }, []);
 
   const loadPendingAdmins = async () => {
     try {
-      const result = await api.getPendingAdmins(token);
-      if (result.success && result.admins) {
-        setPendingAdmins(result.admins);
-      }
+      const admins = await getAdmins();
+      setPendingAdmins(admins.filter(a => !a.approved));
     } catch (error) {
       console.error('Failed to load pending admins:', error);
     } finally {
@@ -28,32 +24,24 @@ export function AdminApproval({ token }: AdminApprovalProps) {
     }
   };
 
-  const approveAdmin = async (adminId: string) => {
+  const approveAdmin = async (email: string) => {
     try {
-      const result = await api.approveAdmin(token, adminId);
-      if (result.success) {
-        alert('✅ Admin approved successfully!');
-        await loadPendingAdmins();
-      } else {
-        alert('❌ ' + result.message);
-      }
+      await updateAdmin(email, { approved: true });
+      alert('✅ Admin approved successfully!');
+      await loadPendingAdmins();
     } catch (error) {
       console.error('Failed to approve admin:', error);
       alert('❌ Failed to approve admin');
     }
   };
 
-  const rejectAdmin = async (adminId: string) => {
+  const rejectAdmin = async (email: string) => {
     if (!confirm('Are you sure you want to reject this request?')) return;
 
     try {
-      const result = await api.rejectAdmin(token, adminId);
-      if (result.success) {
-        alert('✅ Request rejected');
-        await loadPendingAdmins();
-      } else {
-        alert('❌ ' + result.message);
-      }
+      await deleteAdmin(email);
+      alert('✅ Request rejected');
+      await loadPendingAdmins();
     } catch (error) {
       console.error('Failed to reject admin:', error);
       alert('❌ Failed to reject admin');
@@ -85,7 +73,7 @@ export function AdminApproval({ token }: AdminApprovalProps) {
       ) : (
         <div className="space-y-4">
           {pendingAdmins.map((admin) => (
-            <div key={admin.id} className="bg-white p-6 rounded-lg border border-gray-200">
+            <div key={admin.email} className="bg-white p-6 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-900 font-semibold">{admin.name}</p>
@@ -96,14 +84,14 @@ export function AdminApproval({ token }: AdminApprovalProps) {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => approveAdmin(admin.id)}
+                    onClick={() => approveAdmin(admin.email)}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
                   >
                     <CheckCircle className="size-4" />
                     Approve
                   </button>
                   <button
-                    onClick={() => rejectAdmin(admin.id)}
+                    onClick={() => rejectAdmin(admin.email)}
                     className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2"
                   >
                     <XCircle className="size-4" />

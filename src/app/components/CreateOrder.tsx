@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { getItems, addOrder, setAuthToken } from '../utils/storage';
+import { getItems, addOrder } from '../utils/storage';
 import { Item, OrderItem, ItemCategory } from '../types';
 import { ShoppingCart, ShoppingBag, Plus, Trash2, Save } from 'lucide-react';
 
 interface CreateOrderProps {
-  token: string;
   adminName: string;
   adminEmail: string;
   orderType: 'purchase' | 'sale';
   onOrderCreated: () => void;
 }
 
-export function CreateOrder({ token, adminName, adminEmail, orderType, onOrderCreated }: CreateOrderProps) {
+export function CreateOrder({ adminName, adminEmail, orderType, onOrderCreated }: CreateOrderProps) {
   // All items from database
   const [allItems, setAllItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,11 +38,10 @@ export function CreateOrder({ token, adminName, adminEmail, orderType, onOrderCr
 
   useEffect(() => {
     loadAllItems();
-  }, [token]);
+  }, []);
 
   const loadAllItems = async () => {
     try {
-      setAuthToken(token);
       const items = await getItems();
       setAllItems(items);
     } catch (error) {

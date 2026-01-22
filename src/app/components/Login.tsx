@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Admin } from '../types';
-import { api } from '../utils/api';
+import { supabase } from '../utils/supabase';
+import { getAdmins } from '../utils/storage';
 import logo from '../../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 interface LoginProps {
-  onLoginSuccess: (token: string, admin: Admin) => void;
+  onLoginSuccess: (admin: Admin) => void;
 }
 
 export function Login({ onLoginSuccess }: LoginProps) {
@@ -21,24 +22,100 @@ export function Login({ onLoginSuccess }: LoginProps) {
     setLoading(true);
 
     try {
+      if (!supabase) {
+        setError('Supabase is not configured. Please set up your environment variables.');
+        setLoading(false);
+        return;
+      }
+
       if (isLogin) {
-        const result = await api.login(email, password);
-        if (result.success && result.token && result.admin) {
-          onLoginSuccess(result.token, result.admin);
-        } else {
-          setError(result.message || 'Login failed');
+        // Login with Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (authError) {
+          setError(authError.message || 'Login failed');
+          setLoading(false);
+          return;
         }
+
+        if (!authData.user) {
+          setError('Login failed - no user returned');
+          setLoading(false);
+          return;
+        }
+
+        // Get admin data from admins table
+        const admins = await getAdmins();
+        const admin = admins.find((a) => a.email === email);
+
+        if (!admin) {
+          setError('Admin record not found. Please contact support.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        if (!admin.approved) {
+          setError('Your account is pending approval');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        onLoginSuccess(admin);
       } else {
-        const result = await api.register(email, password, name);
-        setError(result.message || '');
-        if (result.success) {
-          setEmail('');
-          setPassword('');
-          setName('');
-          setIsLogin(true);
+        // Registration - create auth user and admin record
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name,
+            },
+          },
+        });
+
+        if (authError) {
+          setError(authError.message || 'Registration failed');
+          setLoading(false);
+          return;
         }
+
+        if (!authData.user) {
+          setError('Registration failed - no user created');
+          setLoading(false);
+          return;
+        }
+
+        // Create admin record in admins table
+        const { error: insertError } = await supabase
+          .from('admins')
+          .insert({
+            user_id: authData.user.id,
+            email: email,
+            name: name,
+            role: 'admin',
+            approved: false, // Pending approval
+          });
+
+        if (insertError) {
+          setError('Failed to create admin record: ' + insertError.message);
+          setLoading(false);
+          return;
+        }
+
+        setError('');
+        alert('✅ Registration successful! Your request is pending approval from an existing admin.');
+        setEmail('');
+        setPassword('');
+        setName('');
+        setIsLogin(true);
       }
     } catch (err) {
+      console.error('Auth error:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setLoading(false);

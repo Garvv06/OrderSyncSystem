@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { getOrders, getItems, setAuthToken } from '../utils/storage';
+import { getOrders, getItems } from '../utils/storage';
 import { Package, FileText, Clock, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
-  token: string;
 }
 
-export function Dashboard({ onNavigate, token }: DashboardProps) {
+export function Dashboard({ onNavigate }: DashboardProps) {
   const [stats, setStats] = useState({
     totalItems: 0,
     totalOrders: 0,
@@ -19,11 +18,10 @@ export function Dashboard({ onNavigate, token }: DashboardProps) {
 
   useEffect(() => {
     loadStats();
-  }, [token]);
+  }, []);
 
   const loadStats = async () => {
     try {
-      setAuthToken(token);
       const items = await getItems();
       const orders = await getOrders();
 
