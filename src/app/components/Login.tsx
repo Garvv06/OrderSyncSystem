@@ -23,7 +23,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
     try {
       if (!supabase) {
-        setError('Supabase is not configured. Please set up your environment variables.');
+        setError('⚠️ Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
         setLoading(false);
         return;
       }
@@ -36,7 +36,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
         });
 
         if (authError) {
-          setError(authError.message || 'Login failed');
+          console.error('Login error:', authError);
+          setError(`Login failed: ${authError.message || 'Unknown error'}`);
           setLoading(false);
           return;
         }
@@ -48,26 +49,40 @@ export function Login({ onLoginSuccess }: LoginProps) {
         }
 
         // Get admin data from admins table
-        const admins = await getAdmins();
-        const admin = admins.find((a) => a.email === email);
+        const { data: adminData, error: adminError } = await supabase
+          .from('admins')
+          .select('*')
+          .eq('email', email)
+          .single();
 
-        if (!admin) {
+        if (adminError || !adminData) {
+          console.error('Admin lookup error:', adminError);
           setError('Admin record not found. Please contact support.');
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
 
-        if (!admin.approved) {
-          setError('Your account is pending approval');
+        if (!adminData.approved) {
+          setError('Your account is pending approval. Please wait for an admin to approve your request.');
           await supabase.auth.signOut();
           setLoading(false);
           return;
         }
 
+        // Map database admin to App's Admin type
+        const admin: Admin = {
+          email: adminData.email,
+          name: adminData.name,
+          role: adminData.role as 'superadmin' | 'admin',
+          approved: adminData.approved,
+          password: '', // Don't expose password
+          createdAt: adminData.created_at,
+        };
+
         onLoginSuccess(admin);
       } else {
-        // Registration - create auth user and admin record
+        // Registration - create auth user first, then admin record
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email,
           password,
@@ -75,11 +90,13 @@ export function Login({ onLoginSuccess }: LoginProps) {
             data: {
               name: name,
             },
+            emailRedirectTo: undefined, // Disable email confirmation for now
           },
         });
 
         if (authError) {
-          setError(authError.message || 'Registration failed');
+          console.error('Registration error:', authError);
+          setError(`Registration failed: ${authError.message || 'Unknown error'}`);
           setLoading(false);
           return;
         }
@@ -102,6 +119,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           });
 
         if (insertError) {
+          console.error('Admin record creation error:', insertError);
           setError('Failed to create admin record: ' + insertError.message);
           setLoading(false);
           return;
@@ -116,7 +134,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
       }
     } catch (err) {
       console.error('Auth error:', err);
-      setError('An error occurred. Please try again.');
+      setError('An error occurred. Please try again. Check browser console for details.');
     } finally {
       setLoading(false);
     }
