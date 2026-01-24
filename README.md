@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🔧 MFOI Admin Order System
 
 **A complete admin dashboard for managing fastener inventory and orders with Supabase cloud sync.**
@@ -387,3 +388,6 @@ Private - MFOI Internal Use Only
 **Last Updated:** January 24, 2026
 
 **Questions?** Check the documentation guides above!
+=======
+# mfoi-admin
+>>>>>>> bb1ea4b4c8cdbb2a2192afe94b2c00ae75a2d081
