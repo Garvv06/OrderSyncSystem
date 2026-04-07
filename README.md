@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🔧 MFOI Admin System
 
 > A production-ready fastener inventory and order management system with secure cloud sync.
@@ -424,3 +425,6 @@ This project was built using modern web technologies and best practices for main
 ## ⭐ Star this repo if you find it useful!
 
 For questions or support, reach out to the development team.
+=======
+# OrderSyncSystem
+>>>>>>> f74ee81e1c0abce3bbf6238e34bc8fe3f978f403
