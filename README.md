@@ -1,5 +1,5 @@
 <<<<<<< HEAD
-# 🔧 MFOI Admin System
+# 🔧 OrderSync System
 
 > A production-ready fastener inventory and order management system with secure cloud sync.
 
