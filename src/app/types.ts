@@ -50,7 +50,7 @@ export interface PendingAdmin {
 
 export interface Admin {
   email: string;
-  password: string;
+  password?: string; // DEPRECATED: Only kept for localStorage backward compatibility. Do NOT store passwords!
   name: string;
   role: 'superadmin' | 'admin';
   approved: boolean;

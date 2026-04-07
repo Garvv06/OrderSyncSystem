@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Admin } from '../types';
 import { supabase } from '../utils/supabase';
 import { getAdmins } from '../utils/storage';
-import logo from '../../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import logo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 
 interface LoginProps {
   onLoginSuccess: (admin: Admin) => void;
@@ -116,6 +116,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             name: name,
             role: 'admin',
             approved: false, // Pending approval
+            // NOTE: Password is NOT stored here - it's securely hashed by Supabase Auth
           });
 
         if (insertError) {

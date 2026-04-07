@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getAdmins, updateAdmin, deleteAdmin } from '../utils/storage';
 import { Admin } from '../types';
-import { Users, Trash2, Edit2, Save, X } from 'lucide-react';
+import { Users, Trash2, Edit2, Save, X, Key } from 'lucide-react';
+import { supabase } from '../utils/supabase';
 
 interface UserManagementProps {
   currentUserEmail: string;
@@ -15,12 +16,8 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
   const [editForm, setEditForm] = useState({
     name: '',
     newEmail: '',
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
     role: 'admin' as 'admin' | 'superadmin',
   });
-  const [showPassword, setShowPassword] = useState(false);
 
   const isSuperAdmin = currentUserRole === 'superadmin';
 
@@ -44,6 +41,19 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
     if (!confirm(`Delete admin ${email}? This action cannot be undone.`)) return;
 
     try {
+      // Also delete from Supabase Auth
+      if (supabase) {
+        const { data: adminData } = await supabase
+          .from('admins')
+          .select('user_id')
+          .eq('email', email)
+          .single();
+
+        if (adminData?.user_id) {
+          await supabase.auth.admin.deleteUser(adminData.user_id);
+        }
+      }
+
       await deleteAdmin(email);
       alert('✅ Admin deleted successfully');
       await loadAdmins();
@@ -60,9 +70,6 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
       setEditForm({
         name: admin.name,
         newEmail: admin.email,
-        currentPassword: admin.password, // Load current password
-        newPassword: '',
-        confirmPassword: '',
         role: admin.role as 'admin' | 'superadmin',
       });
     }
@@ -73,19 +80,11 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
     setEditForm({
       name: '',
       newEmail: '',
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
       role: 'admin' as 'admin' | 'superadmin',
     });
   };
 
   const saveEdit = async () => {
-    if (editForm.newPassword && editForm.newPassword !== editForm.confirmPassword) {
-      alert('❌ Passwords do not match');
-      return;
-    }
-
     if (!editForm.name.trim()) {
       alert('❌ Name cannot be empty');
       return;
@@ -97,13 +96,9 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
     }
 
     try {
-      // Determine final password: use new password if provided, else keep current
-      const finalPassword = editForm.newPassword || editForm.currentPassword;
-      
       await updateAdmin(editingEmail!, {
         name: editForm.name,
         email: editForm.newEmail,
-        password: finalPassword,
         role: editForm.role,
       });
       
@@ -113,6 +108,28 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
     } catch (error) {
       console.error('Failed to update admin:', error);
       alert('❌ Failed to update admin');
+    }
+  };
+
+  const handlePasswordReset = async (email: string) => {
+    if (!supabase) {
+      alert('❌ Supabase not configured');
+      return;
+    }
+
+    if (!confirm(`Send password reset email to ${email}?`)) return;
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+
+      if (error) throw error;
+
+      alert(`✅ Password reset email sent to ${email}`);
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      alert(`❌ Failed to send password reset email: ${error.message}`);
     }
   };
 
@@ -165,16 +182,24 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
                     {isSuperAdmin && (
                       <button
                         onClick={() => startEditing(admin.email)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center gap-1"
+                        className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 flex items-center gap-1 text-sm"
                       >
                         <Edit2 className="size-4" />
                         Edit
                       </button>
                     )}
+                    <button
+                      onClick={() => handlePasswordReset(admin.email)}
+                      className="bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700 flex items-center gap-1 text-sm"
+                      title="Send password reset email"
+                    >
+                      <Key className="size-4" />
+                      Reset Password
+                    </button>
                     {admin.email !== currentUserEmail && (
                       <button
                         onClick={() => handleDeleteAdmin(admin.email)}
-                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1"
+                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 flex items-center gap-1 text-sm"
                       >
                         <Trash2 className="size-4" />
                         Delete
@@ -190,8 +215,8 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
 
       {editingEmail && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Edit Admin Credentials</h3>
+          <div className="bg-white p-8 rounded-lg shadow-2xl w-full max-w-md">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">Edit Admin Profile</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-gray-700 font-semibold mb-2">
@@ -236,60 +261,11 @@ export function UserManagement({ currentUserEmail, currentUserRole }: UserManage
                 </p>
               </div>
 
-              <div>
-                <label className="block text-gray-700 font-semibold mb-2">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <input
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    type={showPassword ? 'text' : 'password'}
-                    value={editForm.currentPassword}
-                    onChange={(e) => setEditForm({ ...editForm, currentPassword: e.target.value })}
-                    placeholder="Enter current password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-700 font-medium text-sm"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="border-t pt-4 mt-4">
-                <p className="text-sm text-gray-600 mb-3">
-                  💡 <strong>Change Password:</strong> Fill below to update, or leave blank to keep current password
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                <p className="text-sm text-blue-800">
+                  <strong>🔐 Password Management:</strong> Passwords are securely managed by Supabase Auth. 
+                  Use the "Reset Password" button to send a password reset email.
                 </p>
-                
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">
-                      New Password
-                    </label>
-                    <input
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      type="password"
-                      value={editForm.newPassword}
-                      onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
-                      placeholder="Enter new password"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 font-semibold mb-2">
-                      Confirm New Password
-                    </label>
-                    <input
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      type="password"
-                      value={editForm.confirmPassword}
-                      onChange={(e) => setEditForm({ ...editForm, confirmPassword: e.target.value })}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                </div>
               </div>
 
               <div className="flex gap-3 mt-6 pt-4 border-t">

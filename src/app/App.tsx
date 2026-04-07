@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import logo from '../assets/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
+import logo from 'figma:asset/b83a330ecb651eee17bb0c1cb9db3f1f6df36a92.png';
 import { Admin } from './types';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';

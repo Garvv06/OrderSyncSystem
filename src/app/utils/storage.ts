@@ -42,7 +42,7 @@ async function getAdminsFromSupabase(): Promise<Admin[]> {
 
     return (data || []).map(admin => ({
       email: admin.email,
-      password: admin.password,
+      // Do NOT include password - it's managed by Supabase Auth
       name: admin.name,
       role: admin.role as 'superadmin' | 'admin',
       approved: admin.approved,
@@ -132,15 +132,17 @@ export async function updateAdmin(email: string, updates: Partial<Admin>): Promi
 
 async function updateAdminInSupabase(email: string, updates: Partial<Admin>): Promise<void> {
   try {
+    // Prepare update object - exclude password as it's managed by Supabase Auth
+    const updateData: any = {};
+    if (updates.email !== undefined) updateData.email = updates.email;
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.role !== undefined) updateData.role = updates.role;
+    if (updates.approved !== undefined) updateData.approved = updates.approved;
+    // NOTE: Password is NOT updated here - use Supabase Auth password reset
+
     const { error } = await supabase!
       .from('admins')
-      .update({
-        email: updates.email,
-        password: updates.password,
-        name: updates.name,
-        role: updates.role,
-        approved: updates.approved,
-      })
+      .update(updateData)
       .eq('email', email);
 
     if (error) throw error;
